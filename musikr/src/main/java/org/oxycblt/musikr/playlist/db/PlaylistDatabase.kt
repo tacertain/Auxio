@@ -42,9 +42,9 @@ import org.oxycblt.musikr.Music
  * @author Alexander Capehart (OxygenCobalt)
  */
 @Database(
-    entities = [PlaylistInfo::class, PlaylistSong::class, PlaylistSongCrossRef::class],
-    version = 75,
-    exportSchema = false,
+    entities = [PlaylistInfo::class, PlaylistEntry::class],
+    version = 76,
+    exportSchema = true,
 )
 @TypeConverters(Music.UID.TypeConverters::class)
 internal abstract class PlaylistDatabase : RoomDatabase() {
@@ -117,10 +117,44 @@ internal abstract class PlaylistDatabase : RoomDatabase() {
                             washUids(db, "PlaylistInfo", "playlistUid")
                             washUids(db, "PlaylistSongCrossRef", "playlistUid")
                         }
-                    }
+                    },
+                    MIGRATION_75_76,
                 )
                 .fallbackToDestructiveMigration(true)
                 .build()
+
+        /**
+         * Replaces the song-only `PlaylistSongCrossRef` junction (and the `PlaylistSong` table it
+         * needed) with `PlaylistEntry`, which can hold songs or whole albums. Existing rows become
+         * song entries in their original order. The SQL matches `schemas/.../76.json`.
+         */
+        internal val MIGRATION_75_76 =
+            object : Migration(75, 76) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `PlaylistEntry` (" +
+                            "`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                            "`playlistUid` TEXT NOT NULL, " +
+                            "`entryType` INTEGER NOT NULL, " +
+                            "`entryUid` TEXT NOT NULL)"
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_PlaylistEntry_playlistUid` " +
+                            "ON `PlaylistEntry` (`playlistUid`)"
+                    )
+                    db.execSQL(
+                        "CREATE INDEX IF NOT EXISTS `index_PlaylistEntry_entryUid` " +
+                            "ON `PlaylistEntry` (`entryUid`)"
+                    )
+                    db.execSQL(
+                        "INSERT INTO `PlaylistEntry` (`playlistUid`, `entryType`, `entryUid`) " +
+                            "SELECT `playlistUid`, ${PlaylistEntry.TYPE_SONG}, `songUid` " +
+                            "FROM `PlaylistSongCrossRef` ORDER BY `id`"
+                    )
+                    db.execSQL("DROP TABLE IF EXISTS `PlaylistSongCrossRef`")
+                    db.execSQL("DROP TABLE IF EXISTS `PlaylistSong`")
+                }
+            }
     }
 }
 
@@ -146,20 +180,13 @@ internal abstract class PlaylistDao {
     /**
      * Create a new playlist.
      *
-     * @param rawPlaylist The [RawPlaylist] to create.
+     * @param info The [PlaylistInfo] of the new playlist.
+     * @param entries The [PlaylistEntry] rows of the new playlist, in order.
      */
     @Transaction
-    open suspend fun insertPlaylist(rawPlaylist: RawPlaylist) {
-        insertInfo(rawPlaylist.playlistInfo)
-        insertSongs(rawPlaylist.songs)
-        insertRefs(
-            rawPlaylist.songs.map {
-                PlaylistSongCrossRef(
-                    playlistUid = rawPlaylist.playlistInfo.playlistUid,
-                    songUid = it.songUid,
-                )
-            }
-        )
+    open suspend fun insertPlaylist(info: PlaylistInfo, entries: List<PlaylistEntry>) {
+        insertInfo(info)
+        insertEntries(entries)
     }
 
     /**
@@ -174,44 +201,36 @@ internal abstract class PlaylistDao {
     }
 
     /**
-     * Delete a playlist entry's [PlaylistInfo] and [PlaylistSong].
+     * Delete a playlist's [PlaylistInfo] and [PlaylistEntry] rows.
      *
      * @param playlistUid The [Music.UID] of the playlist to delete.
      */
     @Transaction
     open suspend fun deletePlaylist(playlistUid: Music.UID) {
         deleteInfo(playlistUid)
-        deleteRefs(playlistUid)
+        deleteEntries(playlistUid)
     }
 
     /**
-     * Insert new song entries into a playlist.
+     * Append entries to the end of a playlist.
      *
-     * @param playlistUid The [Music.UID] of the playlist to insert into.
-     * @param songs The [PlaylistSong] representing each song to put into the playlist.
+     * @param entries The [PlaylistEntry] rows to append, in order.
      */
     @Transaction
-    open suspend fun insertPlaylistSongs(playlistUid: Music.UID, songs: List<PlaylistSong>) {
-        insertSongs(songs)
-        insertRefs(
-            songs.map { PlaylistSongCrossRef(playlistUid = playlistUid, songUid = it.songUid) }
-        )
+    open suspend fun insertPlaylistEntries(entries: List<PlaylistEntry>) {
+        insertEntries(entries)
     }
 
     /**
-     * Replace the currently stored songs of the given playlist entry.
+     * Replace the currently stored entries of the given playlist.
      *
      * @param playlistUid The [Music.UID] of the playlist to update.
-     * @param songs The [PlaylistSong] representing the new list of songs to be placed in the
-     *   playlist.
+     * @param entries The new [PlaylistEntry] rows of the playlist, in order.
      */
     @Transaction
-    open suspend fun replacePlaylistSongs(playlistUid: Music.UID, songs: List<PlaylistSong>) {
-        deleteRefs(playlistUid)
-        insertSongs(songs)
-        insertRefs(
-            songs.map { PlaylistSongCrossRef(playlistUid = playlistUid, songUid = it.songUid) }
-        )
+    open suspend fun replacePlaylistEntries(playlistUid: Music.UID, entries: List<PlaylistEntry>) {
+        deleteEntries(playlistUid)
+        insertEntries(entries)
     }
 
     /** Internal, do not use. */
@@ -223,14 +242,10 @@ internal abstract class PlaylistDao {
     abstract suspend fun deleteInfo(playlistUid: Music.UID)
 
     /** Internal, do not use. */
-    @Insert(onConflict = OnConflictStrategy.IGNORE)
-    abstract suspend fun insertSongs(songs: List<PlaylistSong>)
-
-    /** Internal, do not use. */
     @Insert(onConflict = OnConflictStrategy.ABORT)
-    abstract suspend fun insertRefs(refs: List<PlaylistSongCrossRef>)
+    abstract suspend fun insertEntries(entries: List<PlaylistEntry>)
 
     /** Internal, do not use. */
-    @Query("DELETE FROM PlaylistSongCrossRef where playlistUid = :playlistUid")
-    abstract suspend fun deleteRefs(playlistUid: Music.UID)
+    @Query("DELETE FROM PlaylistEntry where playlistUid = :playlistUid")
+    abstract suspend fun deleteEntries(playlistUid: Music.UID)
 }

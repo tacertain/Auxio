@@ -21,7 +21,6 @@ package org.oxycblt.musikr.playlist.db
 import androidx.room.ColumnInfo
 import androidx.room.Embedded
 import androidx.room.Entity
-import androidx.room.Junction
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 import org.oxycblt.musikr.Music
@@ -29,16 +28,14 @@ import org.oxycblt.musikr.Music
 /**
  * Raw playlist information persisted to [PlaylistDatabase].
  *
+ * @param entries The playlist's entries. Room does not guarantee the order of relation rows, so
+ *   sort by [PlaylistEntry.id] before use.
  * @author Alexander Capehart (OxygenCobalt)
  */
 internal data class RawPlaylist(
     @Embedded val playlistInfo: PlaylistInfo,
-    @Relation(
-        parentColumn = "playlistUid",
-        entityColumn = "songUid",
-        associateBy = Junction(PlaylistSongCrossRef::class),
-    )
-    val songs: List<PlaylistSong>,
+    @Relation(parentColumn = "playlistUid", entityColumn = "playlistUid")
+    val entries: List<PlaylistEntry>,
 )
 
 /**
@@ -49,20 +46,25 @@ internal data class RawPlaylist(
 @Entity internal data class PlaylistInfo(@PrimaryKey val playlistUid: Music.UID, val name: String)
 
 /**
- * Song information corresponding to a [RawPlaylist] entry.
+ * One entry of a playlist: a song or a whole album. Entries are ordered by [id].
  *
- * @author Alexander Capehart (OxygenCobalt)
- */
-@Entity internal data class PlaylistSong(@PrimaryKey val songUid: Music.UID)
-
-/**
- * Links individual songs to a playlist entry.
- *
- * @author Alexander Capehart (OxygenCobalt)
+ * @param id Auto-generated row id, which also gives the entry's position in the playlist.
+ * @param playlistUid The [Music.UID] of the playlist this entry belongs to.
+ * @param entryType [TYPE_SONG] or [TYPE_ALBUM].
+ * @param entryUid The [Music.UID] of the song or album.
  */
 @Entity
-internal data class PlaylistSongCrossRef(
+internal data class PlaylistEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(index = true) val playlistUid: Music.UID,
-    @ColumnInfo(index = true) val songUid: Music.UID,
-)
+    val entryType: Int,
+    @ColumnInfo(index = true) val entryUid: Music.UID,
+) {
+    companion object {
+        /** [entryType] of a single song. */
+        const val TYPE_SONG = 0
+
+        /** [entryType] of a whole album. */
+        const val TYPE_ALBUM = 1
+    }
+}

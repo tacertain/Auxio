@@ -53,7 +53,17 @@ android {
     }
     testOptions {
         targetSdk target_sdk
+        // Lets Robolectric tests read the exported Room schemas from test assets.
+        unitTests.includeAndroidResources = true
     }
+    sourceSets {
+        // Exported Room schemas, so MigrationTestHelper can find them in unit tests.
+        test.assets.srcDirs += files("$projectDir/schemas")
+    }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -78,6 +88,7 @@ dependencies {
     testImplementation "org.robolectric:robolectric:4.16.1"
     testImplementation 'androidx.test:core-ktx:1.7.0'
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:$kotlin_coroutines_version"
+    testImplementation "androidx.room:room-testing:$room_version"
     androidTestImplementation 'androidx.test.ext:junit:1.3.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.7.0'
 }

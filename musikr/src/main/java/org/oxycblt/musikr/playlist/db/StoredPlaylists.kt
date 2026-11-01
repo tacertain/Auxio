@@ -19,27 +19,44 @@
 package org.oxycblt.musikr.playlist.db
 
 import android.content.Context
+import android.util.Log
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Song
+import org.oxycblt.musikr.playlist.EntryPointer
+import org.oxycblt.musikr.playlist.PlaylistEntryRef
 import org.oxycblt.musikr.playlist.PlaylistFile
 import org.oxycblt.musikr.playlist.PlaylistHandle
-import org.oxycblt.musikr.playlist.SongPointer
 
 abstract class StoredPlaylists {
-    internal abstract suspend fun new(name: String, songs: List<Song>): PlaylistHandle
+    /** Create a new playlist named [name] holding [entries], in order. */
+    internal abstract suspend fun newWithEntries(
+        name: String,
+        entries: List<PlaylistEntryRef>,
+    ): PlaylistHandle
+
+    /** Create a new playlist named [name] holding [songs], one entry per song. */
+    internal suspend fun new(name: String, songs: List<Song>): PlaylistHandle =
+        newWithEntries(name, songs.map { PlaylistEntryRef.SongRef(it) })
 
     internal abstract suspend fun read(): List<PlaylistFile>
 
     companion object {
         fun from(context: Context): StoredPlaylists =
             StoredPlaylistsImpl(PlaylistDatabase.from(context).playlistDao())
+
+        /** Wrap an existing [PlaylistDao], for tests. */
+        internal fun from(playlistDao: PlaylistDao): StoredPlaylists =
+            StoredPlaylistsImpl(playlistDao)
     }
 }
 
 private class StoredPlaylistsImpl(private val playlistDao: PlaylistDao) : StoredPlaylists() {
-    override suspend fun new(name: String, songs: List<Song>): PlaylistHandle {
+    override suspend fun newWithEntries(
+        name: String,
+        entries: List<PlaylistEntryRef>,
+    ): PlaylistHandle {
         val info = PlaylistInfo(Music.UID.auxio(Music.UID.Item.PLAYLIST), name)
-        playlistDao.insertPlaylist(RawPlaylist(info, songs.map { PlaylistSong(it.uid) }))
+        playlistDao.insertPlaylist(info, entries.toRows(info.playlistUid))
         return StoredPlaylistHandle(info, playlistDao)
     }
 
@@ -47,8 +64,18 @@ private class StoredPlaylistsImpl(private val playlistDao: PlaylistDao) : Stored
         playlistDao.readRawPlaylists().map {
             PlaylistFile(
                 it.playlistInfo.name,
-                it.songs.map { song -> SongPointer.UID(song.songUid) },
+                it.entries.sortedBy { entry -> entry.id }.mapNotNull { entry -> entry.toPointer() },
                 StoredPlaylistHandle(it.playlistInfo, playlistDao),
             )
+        }
+
+    private fun PlaylistEntry.toPointer(): EntryPointer? =
+        when (entryType) {
+            PlaylistEntry.TYPE_SONG -> EntryPointer.Song(entryUid)
+            PlaylistEntry.TYPE_ALBUM -> EntryPointer.Album(entryUid)
+            else -> {
+                Log.w("StoredPlaylists", "Skipping playlist entry $id with unknown type $entryType")
+                null
+            }
         }
 }
