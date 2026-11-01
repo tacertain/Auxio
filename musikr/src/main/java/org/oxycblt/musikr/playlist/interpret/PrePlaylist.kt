@@ -18,8 +18,8 @@
  
 package org.oxycblt.musikr.playlist.interpret
 
+import org.oxycblt.musikr.playlist.EntryPointer
 import org.oxycblt.musikr.playlist.PlaylistHandle
-import org.oxycblt.musikr.playlist.SongPointer
 import org.oxycblt.musikr.tag.Name
 
 internal interface PrePlaylistInfo {
@@ -32,7 +32,7 @@ internal data class PrePlaylist(
     override val name: Name.Known,
     override val rawName: String?,
     override val handle: PlaylistHandle,
-    val songPointers: List<SongPointer>,
+    val entryPointers: List<EntryPointer>,
 ) : PrePlaylistInfo
 
 internal data class PostPlaylist(

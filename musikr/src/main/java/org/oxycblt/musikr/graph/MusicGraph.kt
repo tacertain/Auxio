@@ -21,7 +21,7 @@ package org.oxycblt.musikr.graph
 import android.content.Context
 import java.io.File
 import org.oxycblt.musikr.Music
-import org.oxycblt.musikr.playlist.SongPointer
+import org.oxycblt.musikr.playlist.EntryPointer
 import org.oxycblt.musikr.playlist.interpret.PrePlaylist
 import org.oxycblt.musikr.tag.interpret.PreAlbum
 import org.oxycblt.musikr.tag.interpret.PreArtist
@@ -308,11 +308,11 @@ private class MusicGraphBuilderImpl : MusicGraph.Builder {
             vertex.genreVertices = vertex.genreVertices.distinct().toMutableList()
 
             playlistVertices.forEach {
-                val v363Pointer = SongPointer.UID(entry.key)
+                val v363Pointer = EntryPointer.Song(entry.key)
                 it.pointerMap[v363Pointer]?.forEach { index -> it.songVertices[index] = vertex }
-                val v400Pointer = SongPointer.UID(entry.value.preSong.v400Uid)
+                val v400Pointer = EntryPointer.Song(entry.value.preSong.v400Uid)
                 it.pointerMap[v400Pointer]?.forEach { index -> it.songVertices[index] = vertex }
-                val v401Pointer = SongPointer.UID(entry.value.preSong.v401Uid)
+                val v401Pointer = EntryPointer.Song(entry.value.preSong.v401Uid)
                 it.pointerMap[v401Pointer]?.forEach { index -> it.songVertices[index] = vertex }
             }
         }
@@ -569,9 +569,10 @@ internal class GenreVertex(val preGenre: PreGenre) : Vertex {
 }
 
 internal class PlaylistVertex(val prePlaylist: PrePlaylist) {
-    val songVertices = Array<SongVertex?>(prePlaylist.songPointers.size) { null }
+    // TODO: Album pointers are stored but not yet resolved, so their slots stay null and drop.
+    val songVertices = Array<SongVertex?>(prePlaylist.entryPointers.size) { null }
     val pointerMap =
-        prePlaylist.songPointers
+        prePlaylist.entryPointers
             .withIndex()
             .groupBy { it.value }
             .mapValuesTo(mutableMapOf()) { entry -> entry.value.map { it.index } }

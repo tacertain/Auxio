@@ -40,7 +40,7 @@ private class PlaylistInterpreterImpl(private val naming: Naming) : PlaylistInte
             name = naming.name(file.name, null),
             rawName = file.name,
             handle = file.handle,
-            songPointers = file.songPointers,
+            entryPointers = file.entryPointers,
         )
 
     override fun interpret(name: String, handle: PlaylistHandle): PostPlaylist =

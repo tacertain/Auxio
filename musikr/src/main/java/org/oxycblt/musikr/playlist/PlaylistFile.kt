@@ -23,13 +23,21 @@ import org.oxycblt.musikr.Song
 
 internal data class PlaylistFile(
     val name: String,
-    val songPointers: List<SongPointer>,
+    val entryPointers: List<EntryPointer>,
     val handle: PlaylistHandle,
 )
 
-internal sealed interface SongPointer {
-    data class UID(val uid: Music.UID) : SongPointer
-    //    data class Path(val options: List<Path>) : SongPointer
+/** A reference to one entry of a stored playlist, before it is resolved against the library. */
+internal sealed interface EntryPointer {
+    /** The [Music.UID] of the song or album this pointer refers to. */
+    val uid: Music.UID
+
+    /** A single song, which may match any of the song's historical UIDs. */
+    data class Song(override val uid: Music.UID) : EntryPointer
+
+    /** A whole album, played as its tracks in disc-then-track order. */
+    data class Album(override val uid: Music.UID) : EntryPointer
+    //    data class Path(val options: List<Path>) : EntryPointer
 }
 
 internal interface PlaylistHandle {
@@ -37,9 +45,18 @@ internal interface PlaylistHandle {
 
     suspend fun rename(name: String)
 
-    suspend fun add(songs: List<Song>)
+    /** Append [entries] to the end of the playlist. */
+    suspend fun addEntries(entries: List<PlaylistEntryRef>)
 
-    suspend fun rewrite(songs: List<Song>)
+    /** Replace the contents of the playlist with [entries]. */
+    suspend fun rewriteEntries(entries: List<PlaylistEntryRef>)
+
+    /** Append [songs] to the end of the playlist, one entry per song. */
+    suspend fun add(songs: List<Song>) = addEntries(songs.map { PlaylistEntryRef.SongRef(it) })
+
+    /** Replace the contents of the playlist with [songs], one entry per song. */
+    suspend fun rewrite(songs: List<Song>) =
+        rewriteEntries(songs.map { PlaylistEntryRef.SongRef(it) })
 
     suspend fun delete()
 }

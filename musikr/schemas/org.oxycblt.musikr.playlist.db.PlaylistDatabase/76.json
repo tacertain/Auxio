@@ -1,0 +1,93 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 76,
+    "identityHash": "4d10a699d3fded4d411fd0d25ebf6de3",
+    "entities": [
+      {
+        "tableName": "PlaylistInfo",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistUid` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`playlistUid`))",
+        "fields": [
+          {
+            "fieldPath": "playlistUid",
+            "columnName": "playlistUid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "playlistUid"
+          ]
+        }
+      },
+      {
+        "tableName": "PlaylistEntry",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `playlistUid` TEXT NOT NULL, `entryType` INTEGER NOT NULL, `entryUid` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "playlistUid",
+            "columnName": "playlistUid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entryType",
+            "columnName": "entryType",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entryUid",
+            "columnName": "entryUid",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_PlaylistEntry_playlistUid",
+            "unique": false,
+            "columnNames": [
+              "playlistUid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_PlaylistEntry_playlistUid` ON `${TABLE_NAME}` (`playlistUid`)"
+          },
+          {
+            "name": "index_PlaylistEntry_entryUid",
+            "unique": false,
+            "columnNames": [
+              "entryUid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_PlaylistEntry_entryUid` ON `${TABLE_NAME}` (`entryUid`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '4d10a699d3fded4d411fd0d25ebf6de3')"
+    ]
+  }
+}

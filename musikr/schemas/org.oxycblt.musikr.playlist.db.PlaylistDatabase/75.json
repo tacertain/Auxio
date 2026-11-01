@@ -1,0 +1,105 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 75,
+    "identityHash": "0d912bfae615ee86df527a47ce1674de",
+    "entities": [
+      {
+        "tableName": "PlaylistInfo",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`playlistUid` TEXT NOT NULL, `name` TEXT NOT NULL, PRIMARY KEY(`playlistUid`))",
+        "fields": [
+          {
+            "fieldPath": "playlistUid",
+            "columnName": "playlistUid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "playlistUid"
+          ]
+        }
+      },
+      {
+        "tableName": "PlaylistSong",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`songUid` TEXT NOT NULL, PRIMARY KEY(`songUid`))",
+        "fields": [
+          {
+            "fieldPath": "songUid",
+            "columnName": "songUid",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "songUid"
+          ]
+        }
+      },
+      {
+        "tableName": "PlaylistSongCrossRef",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `playlistUid` TEXT NOT NULL, `songUid` TEXT NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "playlistUid",
+            "columnName": "playlistUid",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "songUid",
+            "columnName": "songUid",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_PlaylistSongCrossRef_playlistUid",
+            "unique": false,
+            "columnNames": [
+              "playlistUid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_PlaylistSongCrossRef_playlistUid` ON `${TABLE_NAME}` (`playlistUid`)"
+          },
+          {
+            "name": "index_PlaylistSongCrossRef_songUid",
+            "unique": false,
+            "columnNames": [
+              "songUid"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_PlaylistSongCrossRef_songUid` ON `${TABLE_NAME}` (`songUid`)"
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0d912bfae615ee86df527a47ce1674de')"
+    ]
+  }
+}

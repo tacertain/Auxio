@@ -18,7 +18,8 @@
  
 package org.oxycblt.musikr.playlist.db
 
-import org.oxycblt.musikr.Song
+import org.oxycblt.musikr.Music
+import org.oxycblt.musikr.playlist.PlaylistEntryRef
 import org.oxycblt.musikr.playlist.PlaylistHandle
 
 internal class StoredPlaylistHandle(
@@ -31,15 +32,33 @@ internal class StoredPlaylistHandle(
         playlistDao.replacePlaylistInfo(playlistInfo.copy(name = name))
     }
 
-    override suspend fun rewrite(songs: List<Song>) {
-        playlistDao.replacePlaylistSongs(uid, songs.map { PlaylistSong(it.uid) })
+    override suspend fun rewriteEntries(entries: List<PlaylistEntryRef>) {
+        playlistDao.replacePlaylistEntries(uid, entries.toRows(uid))
     }
 
-    override suspend fun add(songs: List<Song>) {
-        playlistDao.insertPlaylistSongs(uid, songs.map { PlaylistSong(it.uid) })
+    override suspend fun addEntries(entries: List<PlaylistEntryRef>) {
+        playlistDao.insertPlaylistEntries(entries.toRows(uid))
     }
 
     override suspend fun delete() {
         playlistDao.deletePlaylist(uid)
+    }
+}
+
+/** Convert [PlaylistEntryRef]s to the [PlaylistEntry] rows that store them in [playlistUid]. */
+internal fun List<PlaylistEntryRef>.toRows(playlistUid: Music.UID) = map {
+    when (it) {
+        is PlaylistEntryRef.SongRef ->
+            PlaylistEntry(
+                playlistUid = playlistUid,
+                entryType = PlaylistEntry.TYPE_SONG,
+                entryUid = it.song.uid,
+            )
+        is PlaylistEntryRef.AlbumRef ->
+            PlaylistEntry(
+                playlistUid = playlistUid,
+                entryType = PlaylistEntry.TYPE_ALBUM,
+                entryUid = it.album.uid,
+            )
     }
 }
