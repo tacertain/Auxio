@@ -19,6 +19,7 @@
 package org.oxycblt.musikr.playlist
 
 import org.oxycblt.musikr.Music
+import org.oxycblt.musikr.PlaylistEntry
 import org.oxycblt.musikr.Song
 
 internal data class PlaylistFile(
@@ -46,17 +47,16 @@ internal interface PlaylistHandle {
     suspend fun rename(name: String)
 
     /** Append [entries] to the end of the playlist. */
-    suspend fun addEntries(entries: List<PlaylistEntryRef>)
+    suspend fun addEntries(entries: List<PlaylistEntry>)
 
     /** Replace the contents of the playlist with [entries]. */
-    suspend fun rewriteEntries(entries: List<PlaylistEntryRef>)
+    suspend fun rewriteEntries(entries: List<PlaylistEntry>)
 
     /** Append [songs] to the end of the playlist, one entry per song. */
-    suspend fun add(songs: List<Song>) = addEntries(songs.map { PlaylistEntryRef.SongRef(it) })
+    suspend fun add(songs: List<Song>) = addEntries(songs.map { PlaylistEntry.Song(it) })
 
     /** Replace the contents of the playlist with [songs], one entry per song. */
-    suspend fun rewrite(songs: List<Song>) =
-        rewriteEntries(songs.map { PlaylistEntryRef.SongRef(it) })
+    suspend fun rewrite(songs: List<Song>) = rewriteEntries(songs.map { PlaylistEntry.Song(it) })
 
     suspend fun delete()
 }

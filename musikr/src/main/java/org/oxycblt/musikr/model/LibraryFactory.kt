@@ -23,6 +23,7 @@ import org.oxycblt.musikr.Artist
 import org.oxycblt.musikr.Genre
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MutableLibrary
+import org.oxycblt.musikr.PlaylistEntry
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.graph.AlbumVertex
 import org.oxycblt.musikr.graph.ArtistVertex
@@ -123,8 +124,14 @@ private class LibraryFactoryImpl : LibraryFactory {
     private class PlaylistVertexCore(vertex: PlaylistVertex) : PlaylistCore {
         override val prePlaylist = vertex.prePlaylist
 
-        override val songs: List<Song> =
-            vertex.songVertices.mapNotNull { vertex -> vertex?.let { tag(it) } }
+        override val entries: List<PlaylistEntry> =
+            vertex.entryVertices.mapNotNull { entryVertex ->
+                when (entryVertex) {
+                    is SongVertex -> PlaylistEntry.Song(tag(entryVertex))
+                    is AlbumVertex -> PlaylistEntry.Album(tag(entryVertex))
+                    else -> null
+                }
+            }
     }
 
     private companion object {

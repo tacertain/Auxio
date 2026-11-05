@@ -395,9 +395,30 @@ interface Genre : MusicParent {
  */
 interface Playlist : MusicParent {
     override val name: Name.Known
+    /**
+     * The entries of this playlist, in order. Each entry is either a single song or a whole album.
+     * Entries whose song or album is no longer in the library are left out.
+     */
+    val entries: List<PlaylistEntry>
+    /**
+     * Every song of this playlist in play order: [entries] flattened, with each album entry
+     * expanded to its tracks in disc-then-track order.
+     */
     override val songs: List<Song>
     /** The total duration of the songs in this genre, in milliseconds. */
     val durationMs: Long
     /** Useful information to quickly obtain a (single) cover for a Genre. */
     val covers: CoverCollection
+}
+
+/**
+ * One entry of a [Playlist]: either a single song or a whole album. An album entry is stored as the
+ * album itself and plays as all of its tracks in disc-then-track order.
+ */
+sealed interface PlaylistEntry {
+    /** A single [org.oxycblt.musikr.Song] entry. */
+    data class Song(val song: org.oxycblt.musikr.Song) : PlaylistEntry
+
+    /** A whole-[org.oxycblt.musikr.Album] entry. */
+    data class Album(val album: org.oxycblt.musikr.Album) : PlaylistEntry
 }
