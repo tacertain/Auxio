@@ -115,7 +115,23 @@ interface MutableLibrary : Library {
      * @param songs the songs to add to the playlist
      * @return a new [MutableLibrary] with the new playlist
      */
-    suspend fun createPlaylist(name: String, songs: List<Song>): MutableLibrary
+    suspend fun createPlaylist(name: String, songs: List<Song>): MutableLibrary =
+        createPlaylistWithEntries(name, songs.map { PlaylistEntry.Song(it) })
+
+    /**
+     * Create a new [Playlist] with the given name and entries, each a song or a whole album.
+     *
+     * This will commit the new playlist to the stored playlists in the [Config] used to load the
+     * library.
+     *
+     * @param name the name of the playlist
+     * @param entries the entries of the playlist, in order
+     * @return a new [MutableLibrary] with the new playlist
+     */
+    suspend fun createPlaylistWithEntries(
+        name: String,
+        entries: List<PlaylistEntry>,
+    ): MutableLibrary
 
     /**
      * Rename a [Playlist].
@@ -137,7 +153,22 @@ interface MutableLibrary : Library {
      * @param songs the songs to add to the playlist
      * @return a new [MutableLibrary] with the edited playlist
      */
-    suspend fun addToPlaylist(playlist: Playlist, songs: List<Song>): MutableLibrary
+    suspend fun addToPlaylist(playlist: Playlist, songs: List<Song>): MutableLibrary =
+        addEntriesToPlaylist(playlist, songs.map { PlaylistEntry.Song(it) })
+
+    /**
+     * Append entries, each a song or a whole album, to the end of a [Playlist].
+     *
+     * This will commit to whatever playlist source the given [Playlist] was loaded from.
+     *
+     * @param playlist the playlist to add to
+     * @param entries the entries to append, in order
+     * @return a new [MutableLibrary] with the edited playlist
+     */
+    suspend fun addEntriesToPlaylist(
+        playlist: Playlist,
+        entries: List<PlaylistEntry>,
+    ): MutableLibrary
 
     /**
      * Remove songs from a [Playlist].
@@ -148,7 +179,22 @@ interface MutableLibrary : Library {
      * @param songs the songs to remove from the playlist
      * @return a new [MutableLibrary] with the edited playlist
      */
-    suspend fun rewritePlaylist(playlist: Playlist, songs: List<Song>): MutableLibrary
+    suspend fun rewritePlaylist(playlist: Playlist, songs: List<Song>): MutableLibrary =
+        rewritePlaylistEntries(playlist, songs.map { PlaylistEntry.Song(it) })
+
+    /**
+     * Replace the contents of a [Playlist] with the given entries, each a song or a whole album.
+     *
+     * This will commit to whatever playlist source the given [Playlist] was loaded from.
+     *
+     * @param playlist the playlist to rewrite
+     * @param entries the new entries of the playlist, in order
+     * @return a new [MutableLibrary] with the edited playlist
+     */
+    suspend fun rewritePlaylistEntries(
+        playlist: Playlist,
+        entries: List<PlaylistEntry>,
+    ): MutableLibrary
 
     /**
      * Remove a [Playlist].

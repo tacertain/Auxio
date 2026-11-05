@@ -151,16 +151,27 @@ internal data class MusicGraph(
             }
             appendLine()
 
-            appendLine("  // Playlist -> Song edges")
+            appendLine("  // Playlist -> Song and Album edges")
             playlistVertex.forEachIndexed { playlistIndex, playlist ->
-                playlist.songVertices.forEachIndexed { _, songVertex ->
-                    songVertex?.let {
-                        val songIndex = this@MusicGraph.songVertex.indexOf(it)
-                        if (songIndex >= 0) {
-                            appendLine(
-                                "  playlist_$playlistIndex -> song_$songIndex [color=orange];"
-                            )
+                playlist.entryVertices.forEach { entryVertex ->
+                    when (entryVertex) {
+                        is SongVertex -> {
+                            val songIndex = this@MusicGraph.songVertex.indexOf(entryVertex)
+                            if (songIndex >= 0) {
+                                appendLine(
+                                    "  playlist_$playlistIndex -> song_$songIndex [color=orange];"
+                                )
+                            }
                         }
+                        is AlbumVertex -> {
+                            val albumIndex = this@MusicGraph.albumVertex.indexOf(entryVertex)
+                            if (albumIndex >= 0) {
+                                appendLine(
+                                    "  playlist_$playlistIndex -> album_$albumIndex [color=orange];"
+                                )
+                            }
+                        }
+                        else -> {}
                     }
                 }
             }
@@ -309,13 +320,16 @@ private class MusicGraphBuilderImpl : MusicGraph.Builder {
 
             playlistVertices.forEach {
                 val v363Pointer = EntryPointer.Song(entry.key)
-                it.pointerMap[v363Pointer]?.forEach { index -> it.songVertices[index] = vertex }
+                it.pointerMap[v363Pointer]?.forEach { index -> it.entryVertices[index] = vertex }
                 val v400Pointer = EntryPointer.Song(entry.value.preSong.v400Uid)
-                it.pointerMap[v400Pointer]?.forEach { index -> it.songVertices[index] = vertex }
+                it.pointerMap[v400Pointer]?.forEach { index -> it.entryVertices[index] = vertex }
                 val v401Pointer = EntryPointer.Song(entry.value.preSong.v401Uid)
-                it.pointerMap[v401Pointer]?.forEach { index -> it.songVertices[index] = vertex }
+                it.pointerMap[v401Pointer]?.forEach { index -> it.entryVertices[index] = vertex }
             }
         }
+
+        // Albums are final now, so album entries can be resolved by their (single) UID.
+        resolvePlaylistAlbums(albumVertices.values, playlistVertices)
 
         val graph =
             MusicGraph(
@@ -569,8 +583,11 @@ internal class GenreVertex(val preGenre: PreGenre) : Vertex {
 }
 
 internal class PlaylistVertex(val prePlaylist: PrePlaylist) {
-    // TODO: Album pointers are stored but not yet resolved, so their slots stay null and drop.
-    val songVertices = Array<SongVertex?>(prePlaylist.entryPointers.size) { null }
+    /**
+     * One slot per entry pointer, in order: a [SongVertex] or [AlbumVertex] once resolved, or null
+     * if nothing in the library matched the pointer.
+     */
+    val entryVertices = Array<Vertex?>(prePlaylist.entryPointers.size) { null }
     val pointerMap =
         prePlaylist.entryPointers
             .withIndex()

@@ -30,9 +30,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.oxycblt.musikr.Album
 import org.oxycblt.musikr.Music
+import org.oxycblt.musikr.PlaylistEntry as LibraryEntry
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.playlist.EntryPointer
-import org.oxycblt.musikr.playlist.PlaylistEntryRef
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -68,9 +68,9 @@ class StoredPlaylistsTest {
         storedPlaylists.newWithEntries(
             "Mixed",
             listOf(
-                PlaylistEntryRef.SongRef(songA),
-                PlaylistEntryRef.AlbumRef(album),
-                PlaylistEntryRef.SongRef(songB),
+                LibraryEntry.Song(songA),
+                LibraryEntry.Album(album),
+                LibraryEntry.Song(songB),
             ),
         )
 
@@ -95,10 +95,8 @@ class StoredPlaylistsTest {
         val songB = song()
         val handle = storedPlaylists.new("Songs", listOf(songA))
 
-        handle.rewriteEntries(
-            listOf(PlaylistEntryRef.AlbumRef(albumA), PlaylistEntryRef.SongRef(songA))
-        )
-        handle.addEntries(listOf(PlaylistEntryRef.AlbumRef(albumB)))
+        handle.rewriteEntries(listOf(LibraryEntry.Album(albumA), LibraryEntry.Song(songA)))
+        handle.addEntries(listOf(LibraryEntry.Album(albumB)))
         handle.add(listOf(songB))
 
         assertEquals(
@@ -148,8 +146,7 @@ class StoredPlaylistsTest {
     @Test
     fun delete_removesPlaylistAndEntries() = runTest {
         val handle = storedPlaylists.new("Songs", listOf(song()))
-        val other =
-            storedPlaylists.newWithEntries("Album", listOf(PlaylistEntryRef.AlbumRef(album())))
+        val other = storedPlaylists.newWithEntries("Album", listOf(LibraryEntry.Album(album())))
         handle.delete()
 
         val files = storedPlaylists.read()

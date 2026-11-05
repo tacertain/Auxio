@@ -21,9 +21,9 @@ package org.oxycblt.musikr.playlist.db
 import android.content.Context
 import android.util.Log
 import org.oxycblt.musikr.Music
+import org.oxycblt.musikr.PlaylistEntry as LibraryEntry
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.playlist.EntryPointer
-import org.oxycblt.musikr.playlist.PlaylistEntryRef
 import org.oxycblt.musikr.playlist.PlaylistFile
 import org.oxycblt.musikr.playlist.PlaylistHandle
 
@@ -31,12 +31,12 @@ abstract class StoredPlaylists {
     /** Create a new playlist named [name] holding [entries], in order. */
     internal abstract suspend fun newWithEntries(
         name: String,
-        entries: List<PlaylistEntryRef>,
+        entries: List<LibraryEntry>,
     ): PlaylistHandle
 
     /** Create a new playlist named [name] holding [songs], one entry per song. */
     internal suspend fun new(name: String, songs: List<Song>): PlaylistHandle =
-        newWithEntries(name, songs.map { PlaylistEntryRef.SongRef(it) })
+        newWithEntries(name, songs.map { LibraryEntry.Song(it) })
 
     internal abstract suspend fun read(): List<PlaylistFile>
 
@@ -53,7 +53,7 @@ abstract class StoredPlaylists {
 private class StoredPlaylistsImpl(private val playlistDao: PlaylistDao) : StoredPlaylists() {
     override suspend fun newWithEntries(
         name: String,
-        entries: List<PlaylistEntryRef>,
+        entries: List<LibraryEntry>,
     ): PlaylistHandle {
         val info = PlaylistInfo(Music.UID.auxio(Music.UID.Item.PLAYLIST), name)
         playlistDao.insertPlaylist(info, entries.toRows(info.playlistUid))

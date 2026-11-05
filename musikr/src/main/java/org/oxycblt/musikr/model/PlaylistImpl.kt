@@ -19,6 +19,7 @@
 package org.oxycblt.musikr.model
 
 import org.oxycblt.musikr.Playlist
+import org.oxycblt.musikr.PlaylistEntry
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.covers.CoverCollection
 import org.oxycblt.musikr.playlist.interpret.PrePlaylistInfo
@@ -26,23 +27,43 @@ import org.oxycblt.musikr.tag.Name
 
 internal interface PlaylistCore {
     val prePlaylist: PrePlaylistInfo
-    val songs: List<Song>
+    val entries: List<PlaylistEntry>
 }
 
 internal class PlaylistImpl(val core: PlaylistCore) : Playlist {
     override val uid = core.prePlaylist.handle.uid
     override val name: Name.Known = core.prePlaylist.name
-    override val durationMs = core.songs.sumOf { it.durationMs }
-    override val covers = CoverCollection.from(core.songs.mapNotNull { it.cover })
-    override val songs = core.songs
+    override val entries = core.entries
+    override val songs = entries.flattenToSongs()
+    override val durationMs = songs.sumOf { it.durationMs }
+    override val covers = CoverCollection.from(songs.mapNotNull { it.cover })
 
     private var hashCode =
-        31 * (31 * uid.hashCode() + core.prePlaylist.hashCode()) + songs.hashCode()
+        31 * (31 * uid.hashCode() + core.prePlaylist.hashCode()) + entries.hashCode()
 
     override fun equals(other: Any?) =
-        other is PlaylistImpl && core.prePlaylist == other.core.prePlaylist && songs == other.songs
+        other is PlaylistImpl &&
+            core.prePlaylist == other.core.prePlaylist &&
+            entries == other.entries
 
     override fun hashCode() = hashCode
 
     override fun toString() = "Playlist(uid=$uid, name=$name)"
+}
+
+/**
+ * The order of tracks inside an album entry: disc, then track number, with missing numbers last,
+ * then name. This deliberately ignores the app's album sort setting.
+ */
+internal val albumTrackOrder: Comparator<Song> =
+    compareBy<Song, Int?>(nullsLast()) { it.disc?.number }
+        .thenBy(nullsLast()) { it.track }
+        .thenBy { it.name }
+
+/** Expand each album entry to its tracks in [albumTrackOrder], keeping entry order. */
+internal fun List<PlaylistEntry>.flattenToSongs(): List<Song> = flatMap {
+    when (it) {
+        is PlaylistEntry.Song -> listOf(it.song)
+        is PlaylistEntry.Album -> it.album.songs.sortedWith(albumTrackOrder)
+    }
 }

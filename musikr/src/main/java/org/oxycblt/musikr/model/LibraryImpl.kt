@@ -21,7 +21,7 @@ package org.oxycblt.musikr.model
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MutableLibrary
 import org.oxycblt.musikr.Playlist
-import org.oxycblt.musikr.Song
+import org.oxycblt.musikr.PlaylistEntry
 import org.oxycblt.musikr.fs.Path
 import org.oxycblt.musikr.playlist.db.StoredPlaylists
 import org.oxycblt.musikr.playlist.interpret.PlaylistInterpreter
@@ -62,10 +62,13 @@ internal data class LibraryImpl(
 
     override fun findPlaylistByName(name: String) = playlists.find { it.name.raw == name }
 
-    override suspend fun createPlaylist(name: String, songs: List<Song>): MutableLibrary {
-        val handle = storedPlaylists.new(name, songs)
+    override suspend fun createPlaylistWithEntries(
+        name: String,
+        entries: List<PlaylistEntry>,
+    ): MutableLibrary {
+        val handle = storedPlaylists.newWithEntries(name, entries)
         val postPlaylist = playlistInterpreter.interpret(name, handle)
-        val core = NewPlaylistCore(postPlaylist, songs)
+        val core = NewPlaylistCore(postPlaylist, entries)
         val playlist = PlaylistImpl(core)
         return copy(playlists = playlists + playlist)
     }
@@ -78,29 +81,35 @@ internal data class LibraryImpl(
         val prePlaylist = playlistImpl.core.prePlaylist
         prePlaylist.handle.rename(name)
         val postPlaylist = playlistInterpreter.interpret(name, prePlaylist.handle)
-        val core = NewPlaylistCore(postPlaylist, playlist.songs)
+        val core = NewPlaylistCore(postPlaylist, playlistImpl.entries)
         val newPlaylist = PlaylistImpl(core)
         return copy(playlists = playlists - playlistImpl + newPlaylist)
     }
 
-    override suspend fun addToPlaylist(playlist: Playlist, songs: List<Song>): MutableLibrary {
+    override suspend fun addEntriesToPlaylist(
+        playlist: Playlist,
+        entries: List<PlaylistEntry>,
+    ): MutableLibrary {
         val playlistImpl =
             requireNotNull(playlistUidMap[playlist.uid]) {
                 "Playlist to add to is not in this library"
             }
-        playlistImpl.core.prePlaylist.handle.add(songs)
-        val core = NewPlaylistCore(playlistImpl.core.prePlaylist, playlistImpl.songs + songs)
+        playlistImpl.core.prePlaylist.handle.addEntries(entries)
+        val core = NewPlaylistCore(playlistImpl.core.prePlaylist, playlistImpl.entries + entries)
         val newPlaylist = PlaylistImpl(core)
         return copy(playlists = playlists - playlistImpl + newPlaylist)
     }
 
-    override suspend fun rewritePlaylist(playlist: Playlist, songs: List<Song>): MutableLibrary {
+    override suspend fun rewritePlaylistEntries(
+        playlist: Playlist,
+        entries: List<PlaylistEntry>,
+    ): MutableLibrary {
         val playlistImpl =
             requireNotNull(playlistUidMap[playlist.uid]) {
                 "Playlist to rewrite is not in this library"
             }
-        playlistImpl.core.prePlaylist.handle.rewrite(songs)
-        val core = NewPlaylistCore(playlistImpl.core.prePlaylist, songs)
+        playlistImpl.core.prePlaylist.handle.rewriteEntries(entries)
+        val core = NewPlaylistCore(playlistImpl.core.prePlaylist, entries)
         val newPlaylist = PlaylistImpl(core)
         return copy(playlists = playlists - playlistImpl + newPlaylist)
     }
@@ -116,6 +125,6 @@ internal data class LibraryImpl(
 
     private class NewPlaylistCore(
         override val prePlaylist: PrePlaylistInfo,
-        override val songs: List<Song>,
+        override val entries: List<PlaylistEntry>,
     ) : PlaylistCore
 }
