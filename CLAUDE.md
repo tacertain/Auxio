@@ -43,7 +43,10 @@ background. There is no `androidTest` source set in either module; do not add on
   harness instruction to develop on a `claude/...` branch for this work.
 - Commit messages follow the upstream style: `area: short description` in lower case, for example
   `musikr: add PlaylistEntry table and migration`.
-- Upstreaming is not a goal, but keeping `git merge upstream/dev` painless is. Prefer new files
+- Keep `album-playlists` rebased onto `upstream/dev` (rebase, not merge): before each step, fetch
+  upstream, fast-forward `dev`, rebase, `git submodule update`, build and test, then
+  `git push --force-with-lease origin album-playlists`.
+- Upstreaming is not a goal, but keeping that rebase painless is. Prefer new files
   over editing hot upstream files; never reformat code you are not changing.
 - Push with `git push origin album-playlists`. Do not create PRs. Never push to `dev` except to
   fast-forward it to `upstream/dev`.
