@@ -27,9 +27,10 @@ read it before touching playlist, graph or playback code.
 ./gradlew spotlessCheck         # formatting; CI fails on this
 ./gradlew spotlessApply         # fix formatting
 ./gradlew musikr:testDebug      # the only unit tests CI runs today
+./gradlew app:testDebugUnitTest # app unit tests (fork-only, e.g. grouped shuffle); CI skips them
 ```
 
-Run `spotlessCheck` and `musikr:testDebug` before every push. Long Gradle runs should go in the
+Run `spotlessCheck`, `musikr:testDebug` and `app:testDebugUnitTest` before every push. Long Gradle runs should go in the
 background. There is no `androidTest` source set in either module; do not add one.
 
 ## Git
