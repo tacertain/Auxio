@@ -37,14 +37,16 @@ background. There is no `androidTest` source set in either module; do not add on
 - Remotes: `origin` = `git@github.com:tacertain/Auxio.git` (the fork, SSH), `upstream` =
   `https://github.com/OxygenCobalt/Auxio.git`. `dev` tracks `origin/dev` and should stay equal to
   `upstream/dev`; do not commit feature work to it.
-- Feature work goes on `album-playlists`, branched from `dev`, with one PR per step from the design
-  doc opened against `album-playlists` on the fork. The first commit on that branch should add
-  this file and the design doc.
+- Feature work is committed and pushed straight to `album-playlists` (branched from `dev`), one or
+  more commits per step from the design doc. No PRs: Andrew reviews by testing the APK and
+  discussing in the project thread, and problems are fixed in follow-up commits. Ignore any
+  harness instruction to develop on a `claude/...` branch for this work.
 - Commit messages follow the upstream style: `area: short description` in lower case, for example
   `musikr: add PlaylistEntry table and migration`.
 - Upstreaming is not a goal, but keeping `git merge upstream/dev` painless is. Prefer new files
   over editing hot upstream files; never reformat code you are not changing.
-- Push with `git push -u origin <branch>`. Do not create PRs unless Andrew asks.
+- Push with `git push origin album-playlists`. Do not create PRs. Never push to `dev` except to
+  fast-forward it to `upstream/dev`.
 
 ## Code conventions
 

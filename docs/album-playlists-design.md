@@ -267,8 +267,8 @@ Manual checks on the phone after each PR:
 
 ## Implementation sequence
 
-Branch `album-playlists` from `dev`; one PR per row against it on `tacertain/Auxio`.
-Each PR must build (`./gradlew app:packageDebug`), pass `spotlessCheck` and `musikr:testDebug`,
+Branch `album-playlists` from `dev`; each row is committed directly to it on `tacertain/Auxio`
+(no PRs; the "PR" numbers below just name the steps). Each step must build (`./gradlew app:packageDebug`), pass `spotlessCheck` and `musikr:testDebug`,
 and install on the phone.
 
 | PR | Scope | Main files | Days | Done when |
