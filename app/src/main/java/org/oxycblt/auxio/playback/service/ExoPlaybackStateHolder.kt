@@ -255,7 +255,9 @@ class ExoPlaybackStateHolder(
                 ?.let { command.queue.indexOf(it) }
                 .also { check(it != -1) { "Start song not in queue" } }
         if (command.shuffled) {
-            player.setShuffleOrder(BetterShuffleOrder(command.queue.size, startIndex ?: -1))
+            player.setShuffleOrder(
+                newShuffleOrder(command.parent, command.queue, command.queue.size, startIndex ?: -1)
+            )
         }
         val target = startIndex ?: player.currentTimeline.getFirstWindowIndex(command.shuffled)
         player.seekTo(target, C.TIME_UNSET)
@@ -270,12 +272,29 @@ class ExoPlaybackStateHolder(
         if (player.shuffleModeEnabled) {
             // Have to manually refresh the shuffle seed and anchor it to the new current songs
             player.setShuffleOrder(
-                BetterShuffleOrder(player.mediaItemCount, player.currentMediaItemIndex)
+                newShuffleOrder(
+                    parent,
+                    resolveQueue().heap,
+                    player.mediaItemCount,
+                    player.currentMediaItemIndex,
+                )
             )
         }
         playbackManager.ack(this, StateAck.QueueReordered)
         deferSave()
     }
+
+    /** A fresh shuffle order, keeping album playlist entries whole (see [shuffleGroups]). */
+    private fun newShuffleOrder(
+        parent: MusicParent?,
+        heap: List<Song>,
+        length: Int,
+        startIndex: Int,
+    ) =
+        shuffleGroups(parent, heap)
+            ?.takeIf { heap.size == length }
+            ?.let { BetterShuffleOrder(createGroupedShuffledList(it, startIndex)) }
+            ?: BetterShuffleOrder(length, startIndex)
 
     override fun next() {
         // Replicate the old pseudo-circular queue behavior when no repeat option is implemented.

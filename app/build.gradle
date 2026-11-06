@@ -84,6 +84,8 @@ kotlin {
 dependencies {
     androidTestImplementation "androidx.test:runner:1.7.0"
     androidTestImplementation "androidx.test.ext:junit:1.3.0"
+    testImplementation "junit:junit:4.13.2"
+    testImplementation "io.mockk:mockk:1.14.11"
 
     // Kotlin
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
