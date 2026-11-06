@@ -36,7 +36,9 @@ import org.oxycblt.auxio.list.Item
 import org.oxycblt.auxio.list.ListFragment
 import org.oxycblt.auxio.list.menu.Menu
 import org.oxycblt.auxio.music.PlaylistDecision
+import org.oxycblt.auxio.music.PlaylistKind
 import org.oxycblt.auxio.music.PlaylistMessage
+import org.oxycblt.auxio.music.kind
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.playback.PlaybackDecision
 import org.oxycblt.auxio.playback.formatDurationMs
@@ -47,10 +49,13 @@ import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.getPlural
 import org.oxycblt.auxio.util.navigateSafe
 import org.oxycblt.auxio.util.showToast
+import org.oxycblt.musikr.Album
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Playlist
+import org.oxycblt.musikr.PlaylistEntry
 import org.oxycblt.musikr.Song
+import org.oxycblt.musikr.model.flattenToSongs
 import org.oxycblt.musikr.playlist.m3u.M3U
 import timber.log.Timber as L
 
@@ -61,7 +66,7 @@ import timber.log.Timber as L
  */
 @AndroidEntryPoint
 class PlaylistDetailFragment :
-    DetailFragment<Playlist, Song>(), PlaylistDetailListAdapter.Listener {
+    DetailFragment<Playlist, Music>(), PlaylistDetailListAdapter.Listener {
     // Information about what playlist to display is initially within the navigation arguments
     // as a UID, as that is the only safe way to parcel an playlist.
     private val args: PlaylistDetailFragmentArgs by navArgs()
@@ -173,8 +178,12 @@ class PlaylistDetailFragment :
         playbackModel.shuffle(parent)
     }
 
-    override fun onRealClick(item: Song) {
-        playbackModel.play(item, detailModel.playInPlaylistWith)
+    override fun onRealClick(item: Music) {
+        when (item) {
+            is Song -> playbackModel.play(item, detailModel.playInPlaylistWith)
+            is Album -> detailModel.showAlbum(item)
+            else -> error("Unexpected playlist item $item")
+        }
     }
 
     override fun onStartEdit() {
@@ -190,15 +199,21 @@ class PlaylistDetailFragment :
         listModel.openMenu(R.menu.detail_playlist, currentPlaylist)
     }
 
-    override fun onOpenMenu(item: Song) {
-        listModel.openMenu(R.menu.playlist_song, item, detailModel.playInPlaylistWith)
+    override fun onOpenMenu(item: Music) {
+        when (item) {
+            is Song ->
+                listModel.openMenu(R.menu.playlist_song, item, detailModel.playInPlaylistWith)
+            is Album -> listModel.openMenu(R.menu.album, item)
+            else -> error("Unexpected playlist item $item")
+        }
     }
 
     override fun onOpenSortMenu() {
         findNavController().navigateSafe(PlaylistDetailFragmentDirections.sort())
     }
 
-    private fun updatePlaylist(playlist: Playlist?, editedPlaylist: List<Song>?) {
+    private fun updatePlaylist(playlist: Playlist?, editedEntries: List<PlaylistEntry>?) {
+        val editedPlaylist = editedEntries?.flattenToSongs()
         if (playlist == null) {
             // Playlist we were showing no longer exists.
             findNavController().navigateUp()
@@ -227,13 +242,20 @@ class PlaylistDetailFragment :
         binding.detailSubhead.isVisible = false
 
         val songs = editedPlaylist ?: playlist.songs
+        val entries = editedEntries ?: playlist.entries
         val durationMs = editedPlaylist?.sumOf { it.durationMs } ?: playlist.durationMs
-        // The song count of the playlist maps to the info text.
+        // The song (or, for album playlists, album) count of the playlist maps to the info text.
         binding.detailInfo.text =
             if (songs.isNotEmpty()) {
+                val count =
+                    if (entries.kind == PlaylistKind.ALBUMS) {
+                        binding.context.getPlural(R.plurals.fmt_album_count, entries.size)
+                    } else {
+                        binding.context.getPlural(R.plurals.fmt_song_count, songs.size)
+                    }
                 binding.context.getString(
                     R.string.fmt_two,
-                    binding.context.getPlural(R.plurals.fmt_song_count, songs.size),
+                    count,
                     durationMs.formatDurationMs(true),
                 )
             } else {
@@ -265,7 +287,7 @@ class PlaylistDetailFragment :
         playlistListAdapter.update(list, detailModel.playlistSongInstructions.consume())
     }
 
-    private fun updateEditedList(editedPlaylist: List<Song>?) {
+    private fun updateEditedList(editedPlaylist: List<PlaylistEntry>?) {
         playlistListAdapter.setEditing(editedPlaylist != null)
         listModel.dropSelection()
 
@@ -275,7 +297,7 @@ class PlaylistDetailFragment :
                 .detailEditToolbar
                 .setMenuItemEnabled(
                     R.id.action_save,
-                    editedPlaylist != detailModel.currentPlaylist.value?.songs,
+                    editedPlaylist != detailModel.currentPlaylist.value?.entries,
                 )
         }
 
@@ -332,12 +354,12 @@ class PlaylistDetailFragment :
         val directions =
             when (menu) {
                 is Menu.ForSong -> PlaylistDetailFragmentDirections.openSongMenu(menu.parcel)
+                is Menu.ForAlbum -> PlaylistDetailFragmentDirections.openAlbumMenu(menu.parcel)
                 is Menu.ForPlaylist ->
                     PlaylistDetailFragmentDirections.openPlaylistMenu(menu.parcel)
                 is Menu.ForSelection ->
                     PlaylistDetailFragmentDirections.openSelectionMenu(menu.parcel)
                 is Menu.ForArtist,
-                is Menu.ForAlbum,
                 is Menu.ForGenre -> error("Unexpected menu $menu")
             }
         findNavController().navigateSafe(directions)
@@ -400,9 +422,12 @@ class PlaylistDetailFragment :
     }
 
     private fun updatePlayback(song: Song?, parent: MusicParent?, isPlaying: Boolean) {
-        // Prefer songs that are playing from this playlist.
+        // Prefer songs that are playing from this playlist. In an album playlist, light up the
+        // album row that the playing song belongs to.
+        val playlist = detailModel.currentPlaylist.value
+        val playing = song.takeIf { parent == playlist }
         playlistListAdapter.setPlaying(
-            song.takeIf { parent == detailModel.currentPlaylist.value },
+            if (playlist?.kind == PlaylistKind.ALBUMS) playing?.album else playing,
             isPlaying,
         )
     }

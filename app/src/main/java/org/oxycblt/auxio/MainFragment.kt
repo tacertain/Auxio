@@ -767,7 +767,7 @@ class MainFragment :
             }
         }
 
-        fun invalidateEnabled(playlistEdit: List<Song>?) {
+        fun invalidateEnabled(playlistEdit: List<*>?) {
             isEnabled = playlistEdit != null
         }
     }

@@ -25,6 +25,7 @@ import org.oxycblt.auxio.list.ListSettings
 import org.oxycblt.auxio.list.sort.Sort
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.music.MusicType
+import org.oxycblt.auxio.music.music
 import org.oxycblt.musikr.Album
 import org.oxycblt.musikr.Artist
 import org.oxycblt.musikr.Genre
@@ -181,9 +182,9 @@ private class DetailGeneratorImpl(
 
     override fun playlist(uid: Music.UID): Detail<Playlist>? {
         val playlist = musicRepository.library?.findPlaylist(uid) ?: return null
-        if (playlist.songs.isNotEmpty()) {
-            val songs = DetailSection.Songs(playlist.songs)
-            return Detail(playlist, listOf(songs))
+        if (playlist.entries.isNotEmpty()) {
+            val entries = DetailSection.PlaylistEntries(playlist.entries.map { it.music })
+            return Detail(playlist, listOf(entries))
         }
         return Detail(playlist, listOf())
     }
@@ -237,5 +238,15 @@ sealed interface DetailSection {
     data class Discs(val discs: Map<Disc?, List<Song>>) : DetailSection {
         override val order = 13
         override val stringRes = R.string.lbl_songs
+    }
+
+    /**
+     * The entries of a playlist, in order: all [Song]s or all [Album]s, since a playlist never
+     * mixes the two.
+     */
+    data class PlaylistEntries(override val items: List<Music>) : PlainSection<Music>() {
+        override val order = 14
+        override val stringRes =
+            if (items.firstOrNull() is Album) R.string.lbl_albums else R.string.lbl_songs
     }
 }

@@ -30,6 +30,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.R as MR
 import com.google.android.material.shape.MaterialShapeDrawable
 import org.oxycblt.auxio.IntegerTable
+import org.oxycblt.auxio.R
 import org.oxycblt.auxio.databinding.ItemEditHeaderBinding
 import org.oxycblt.auxio.databinding.ItemEditableSongBinding
 import org.oxycblt.auxio.list.EditableListListener
@@ -38,13 +39,17 @@ import org.oxycblt.auxio.list.PlainHeader
 import org.oxycblt.auxio.list.adapter.PlayingIndicatorAdapter
 import org.oxycblt.auxio.list.adapter.SelectionIndicatorAdapter
 import org.oxycblt.auxio.list.adapter.SimpleDiffCallback
+import org.oxycblt.auxio.list.recycler.AlbumViewHolder
 import org.oxycblt.auxio.list.recycler.MaterialDragCallback
 import org.oxycblt.auxio.list.recycler.SongViewHolder
 import org.oxycblt.auxio.music.resolve
 import org.oxycblt.auxio.music.resolveNames
 import org.oxycblt.auxio.util.context
 import org.oxycblt.auxio.util.getAttrColorCompat
+import org.oxycblt.auxio.util.getPlural
 import org.oxycblt.auxio.util.inflater
+import org.oxycblt.musikr.Album
+import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Playlist
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
@@ -64,6 +69,7 @@ class PlaylistDetailListAdapter(private val listener: Listener) :
         when (getItem(position)) {
             is EditHeader -> EditHeaderViewHolder.VIEW_TYPE
             is Song -> PlaylistSongViewHolder.VIEW_TYPE
+            is Album -> PlaylistAlbumViewHolder.VIEW_TYPE
             else -> super.getItemViewType(position)
         }
 
@@ -71,6 +77,7 @@ class PlaylistDetailListAdapter(private val listener: Listener) :
         when (viewType) {
             EditHeaderViewHolder.VIEW_TYPE -> EditHeaderViewHolder.from(parent)
             PlaylistSongViewHolder.VIEW_TYPE -> PlaylistSongViewHolder.from(parent)
+            PlaylistAlbumViewHolder.VIEW_TYPE -> PlaylistAlbumViewHolder.from(parent)
             else -> super.onCreateViewHolder(parent, viewType)
         }
 
@@ -85,6 +92,7 @@ class PlaylistDetailListAdapter(private val listener: Listener) :
             when (val item = getItem(position)) {
                 is EditHeader -> (holder as EditHeaderViewHolder).bind(item, listener)
                 is Song -> (holder as PlaylistSongViewHolder).bind(item, listener)
+                is Album -> (holder as PlaylistAlbumViewHolder).bind(item, listener)
             }
         }
 
@@ -104,7 +112,7 @@ class PlaylistDetailListAdapter(private val listener: Listener) :
     }
 
     /** An extended [DetailListAdapter.Listener] for [PlaylistDetailListAdapter]. */
-    interface Listener : DetailListAdapter.Listener<Song>, EditableListListener {
+    interface Listener : DetailListAdapter.Listener<Music>, EditableListListener {
         /** Called when the "edit" option is selected in the edit header. */
         fun onStartEdit()
     }
@@ -135,6 +143,12 @@ class PlaylistDetailListAdapter(private val listener: Listener) :
                                 newItem,
                             )
 
+                        is Album if newItem is Album ->
+                            PlaylistAlbumViewHolder.DIFF_CALLBACK.areContentsTheSame(
+                                oldItem,
+                                newItem,
+                            )
+
                         is EditHeader if newItem is EditHeader ->
                             EditHeaderViewHolder.DIFF_CALLBACK.areContentsTheSame(oldItem, newItem)
 
@@ -148,9 +162,11 @@ class PlaylistDetailListAdapter(private val listener: Listener) :
  * A [PlainHeader] variant that displays an edit button.
  *
  * @param titleRes The string resource to use as the header title
+ * @param sortable Whether the sort button is offered while editing. False for album playlists.
  * @author Alexander Capehart (OxygenCobalt)
  */
-data class EditHeader(@StringRes override val titleRes: Int) : PlainHeader
+data class EditHeader(@StringRes override val titleRes: Int, val sortable: Boolean = true) :
+    PlainHeader
 
 /**
  * Displays an [EditHeader] and it's actions. Use [from] to create an instance.
@@ -159,6 +175,8 @@ data class EditHeader(@StringRes override val titleRes: Int) : PlainHeader
  */
 private class EditHeaderViewHolder private constructor(private val binding: ItemEditHeaderBinding) :
     RecyclerView.ViewHolder(binding.root), PlaylistDetailListAdapter.ViewHolder {
+    private var sortable = true
+
     /**
      * Bind new data to this instance.
      *
@@ -166,6 +184,7 @@ private class EditHeaderViewHolder private constructor(private val binding: Item
      * @param listener An [PlaylistDetailListAdapter.Listener] to bind interactions to.
      */
     fun bind(editHeader: EditHeader, listener: PlaylistDetailListAdapter.Listener) {
+        sortable = editHeader.sortable
         binding.headerTitle.text = binding.context.getString(editHeader.titleRes)
         // Add a Tooltip based on the content description so that the purpose of this
         // button can be clear.
@@ -186,10 +205,11 @@ private class EditHeaderViewHolder private constructor(private val binding: Item
             isFocusable = !editing
             jumpDrawablesToCurrentState()
         }
+        val showSort = editing && sortable
         binding.headerSort.apply {
-            isVisible = editing
-            isClickable = editing
-            isFocusable = editing
+            isVisible = showSort
+            isClickable = showSort
+            isFocusable = showSort
             jumpDrawablesToCurrentState()
         }
     }
@@ -213,7 +233,7 @@ private class EditHeaderViewHolder private constructor(private val binding: Item
         val DIFF_CALLBACK =
             object : SimpleDiffCallback<EditHeader>() {
                 override fun areContentsTheSame(oldItem: EditHeader, newItem: EditHeader) =
-                    oldItem.titleRes == newItem.titleRes
+                    oldItem.titleRes == newItem.titleRes && oldItem.sortable == newItem.sortable
             }
     }
 }
@@ -302,5 +322,98 @@ private constructor(private val binding: ItemEditableSongBinding) :
 
         /** A comparator that can be used with DiffUtil. */
         val DIFF_CALLBACK = SongViewHolder.DIFF_CALLBACK
+    }
+}
+
+/**
+ * A [PlayingIndicatorAdapter.ViewHolder] that displays a whole-[Album] playlist entry, which can be
+ * re-ordered and removed as a unit. It reuses the editable song layout. Use [from] to create an
+ * instance.
+ */
+private class PlaylistAlbumViewHolder
+private constructor(private val binding: ItemEditableSongBinding) :
+    SelectionIndicatorAdapter.ViewHolder(binding.root),
+    MaterialDragCallback.ViewHolder,
+    PlaylistDetailListAdapter.ViewHolder {
+    override val enabled: Boolean
+        get() = binding.songDragHandle.isVisible
+
+    override val root = binding.root
+    override val body = binding.body
+    override val delete = binding.background
+    override val liftableBackground =
+        MaterialShapeDrawable.createWithElevationOverlay(binding.root.context).apply {
+            fillColor = binding.context.getAttrColorCompat(MR.attr.colorSurfaceContainerHigh)
+            alpha = 0
+        }
+
+    override val roundableBackground: Drawable
+        get() =
+            MaterialShapeDrawable.createWithElevationOverlay(binding.context).apply {
+                fillColor = binding.context.getAttrColorCompat(MR.attr.colorSurface)
+            }
+
+    init {
+        binding.body.background = LayerDrawable(arrayOf(roundableBackground, liftableBackground))
+        binding.songDragHandle.contentDescription =
+            binding.context.getString(R.string.desc_album_handle)
+    }
+
+    /**
+     * Bind new data to this instance.
+     *
+     * @param album The new [Album] to bind.
+     * @param listener A [PlaylistDetailListAdapter.Listener] to bind interactions to.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    fun bind(album: Album, listener: PlaylistDetailListAdapter.Listener) {
+        listener.bind(album, this, binding.interactBody, menuButton = binding.songMenu)
+        listener.bind(this, binding.songDragHandle)
+        binding.songAlbumCover.bind(album)
+        binding.songName.text = album.name.resolve(binding.context)
+        binding.songInfo.text =
+            binding.context.getString(
+                R.string.fmt_two,
+                album.artists.resolveNames(binding.context),
+                binding.context.getPlural(R.plurals.fmt_song_count, album.songs.size),
+            )
+        // Not swiping this ViewHolder if it's being re-bound, ensure that the background is
+        // not visible. See MaterialDragCallback for why this is done.
+        binding.background.isInvisible = true
+    }
+
+    override fun updateSelectionIndicator(isSelected: Boolean) {
+        binding.interactBody.isActivated = isSelected
+        binding.songAlbumCover.isActivated = isSelected
+    }
+
+    override fun updatePlayingIndicator(isActive: Boolean, isPlaying: Boolean) {
+        binding.interactBody.isSelected = isActive
+        binding.songAlbumCover.setPlaying(isPlaying)
+    }
+
+    override fun updateEditing(editing: Boolean) {
+        binding.songDragHandle.isInvisible = !editing
+        binding.songMenu.isInvisible = editing
+        binding.interactBody.isEnabled = !editing
+    }
+
+    companion object {
+        /** A unique ID for this [RecyclerView.ViewHolder] type. */
+        const val VIEW_TYPE = IntegerTable.VIEW_TYPE_PLAYLIST_ALBUM
+
+        /**
+         * Create a new instance.
+         *
+         * @param parent The parent to inflate this instance from.
+         * @return A new instance.
+         */
+        fun from(parent: ViewGroup) =
+            PlaylistAlbumViewHolder(
+                ItemEditableSongBinding.inflate(parent.context.inflater, parent, false)
+            )
+
+        /** A comparator that can be used with DiffUtil. */
+        val DIFF_CALLBACK = AlbumViewHolder.DIFF_CALLBACK
     }
 }

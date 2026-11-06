@@ -367,6 +367,7 @@
 
     <string name="desc_remove_song">Remove this song</string>
     <string name="desc_song_handle">Move this song</string>
+    <string name="desc_album_handle">Move this album</string>
     <string name="desc_queue_bar">Open the queue</string>
     <string name="desc_tab_handle">Move this tab</string>
     <string name="desc_clear_search">Clear search query</string>

@@ -40,6 +40,14 @@ val PlaylistEntry.uid: Music.UID
             is PlaylistEntry.Album -> album.uid
         }
 
+/** The song or album this entry refers to, as shown in a list. */
+val PlaylistEntry.music: Music
+    get() =
+        when (this) {
+            is PlaylistEntry.Song -> song
+            is PlaylistEntry.Album -> album
+        }
+
 /** The [PlaylistKind] of these entries, or null if there are none. */
 val List<PlaylistEntry>.kind: PlaylistKind?
     get() =

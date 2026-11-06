@@ -60,8 +60,11 @@ internal val albumTrackOrder: Comparator<Song> =
         .thenBy(nullsLast()) { it.track }
         .thenBy { it.name }
 
-/** Expand each album entry to its tracks in [albumTrackOrder], keeping entry order. */
-internal fun List<PlaylistEntry>.flattenToSongs(): List<Song> = flatMap {
+/**
+ * Expand each album entry to its tracks in disc-then-track order, keeping entry order. This is how
+ * [Playlist.songs] is derived from [Playlist.entries].
+ */
+fun List<PlaylistEntry>.flattenToSongs(): List<Song> = flatMap {
     when (it) {
         is PlaylistEntry.Song -> listOf(it.song)
         is PlaylistEntry.Album -> it.album.songs.sortedWith(albumTrackOrder)

@@ -43,6 +43,7 @@ import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.music.MusicType
 import org.oxycblt.auxio.music.PlaylistKind
 import org.oxycblt.auxio.music.kind
+import org.oxycblt.auxio.music.music
 import org.oxycblt.auxio.playback.PlaySong
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.util.Event
@@ -54,6 +55,7 @@ import org.oxycblt.musikr.Genre
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.MusicParent
 import org.oxycblt.musikr.Playlist
+import org.oxycblt.musikr.PlaylistEntry
 import org.oxycblt.musikr.Song
 import timber.log.Timber as L
 
@@ -172,11 +174,11 @@ constructor(
         field = MutableEvent<UpdateInstructions>()
 
     /**
-     * The new playlist songs created during the current editing session. Null if no editing session
-     * is occurring.
+     * The new playlist entries (all songs or all albums) created during the current editing
+     * session. Null if no editing session is occurring.
      */
-    val editedPlaylist: StateFlow<List<Song>?>
-        field = MutableStateFlow<List<Song>?>(null)
+    val editedPlaylist: StateFlow<List<PlaylistEntry>?>
+        field = MutableStateFlow<List<PlaylistEntry>?>(null)
 
     /** The [PlaySong] instructions to use when playing a [Song] from [Genre] details. */
     val playInPlaylistWith
@@ -408,13 +410,8 @@ constructor(
     /** Start a playlist editing session. Does nothing if a playlist is not being shown. */
     fun startPlaylistEdit() {
         val playlist = currentPlaylist.value ?: return
-        if (playlist.kind == PlaylistKind.ALBUMS) {
-            // TODO(album-playlists step 4): editing works on songs and would flatten albums.
-            L.w("Album playlists cannot be edited yet")
-            return
-        }
         L.d("Starting playlist edit")
-        editedPlaylist.value = playlist.songs
+        editedPlaylist.value = playlist.entries
         refreshPlaylist(playlist.uid)
     }
 
@@ -427,7 +424,7 @@ constructor(
         val editedPlaylist = editedPlaylist.value ?: return
         L.d("Committing playlist edits")
         viewModelScope.launch(Dispatchers.IO) {
-            musicRepository.rewritePlaylist(playlist, editedPlaylist)
+            musicRepository.rewritePlaylistEntries(playlist, editedPlaylist)
             // TODO: The user could probably press some kind of button if they were fast enough.
             //  Think of a better way to handle this state.
             this@DetailViewModel.editedPlaylist.value = null
@@ -453,13 +450,20 @@ constructor(
     }
 
     /**
-     * Apply a [Sort] to the edited playlist. Does nothing if not in an editing session.
+     * Apply a [Sort] to the edited playlist. Does nothing if not in an editing session, or if the
+     * playlist holds albums (sorting is not offered for those).
      *
      * @param sort The [Sort] to apply.
      */
     fun applyPlaylistSongSort(sort: Sort) {
         val playlist = currentPlaylist.value ?: return
-        editedPlaylist.value = sort.songs(editedPlaylist.value ?: return)
+        val edited = editedPlaylist.value ?: return
+        if (edited.kind == PlaylistKind.ALBUMS) {
+            L.w("Album playlists cannot be sorted")
+            return
+        }
+        val songs = edited.map { (it as PlaylistEntry.Song).song }
+        editedPlaylist.value = sort.songs(songs).map { PlaylistEntry.Song(it) }
         refreshPlaylist(playlist.uid, UpdateInstructions.Replace(1))
     }
 
@@ -563,8 +567,14 @@ constructor(
                 when (section) {
                     is DetailSection.PlainSection<*> -> {
                         val header =
-                            if (section is DetailSection.Songs) songHeader(section.stringRes)
-                            else BasicHeader(section.stringRes)
+                            if (
+                                section is DetailSection.Songs ||
+                                    section is DetailSection.PlaylistEntries
+                            ) {
+                                songHeader(section.stringRes)
+                            } else {
+                                BasicHeader(section.stringRes)
+                            }
                         if (newList.isNotEmpty()) {
                             newList.add(PlainDivider(header))
                         }
@@ -617,15 +627,17 @@ constructor(
                 playlistSongInstructions,
                 null,
             ) {
-                EditHeader(it)
+                EditHeader(it, sortable = playlist?.parent?.kind != PlaylistKind.ALBUMS)
             }
             return
         }
         val list = mutableListOf<Item>()
         if (edited.isNotEmpty()) {
-            val header = EditHeader(R.string.lbl_songs)
+            val albums = edited.kind == PlaylistKind.ALBUMS
+            val header =
+                EditHeader(if (albums) R.string.lbl_albums else R.string.lbl_songs, !albums)
             list.add(header)
-            list.addAll(edited)
+            list.addAll(edited.map { it.music })
         }
         playlistSongInstructions.put(instructions)
         _playlistSongList.value = list
