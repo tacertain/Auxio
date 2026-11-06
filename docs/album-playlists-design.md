@@ -1,6 +1,8 @@
 # Album playlists: design
 
-Status: approved design, not yet implemented. Written 2026-10-27 against `dev` at c05cebc5.
+Status: steps 1 to 5 implemented on `album-playlists`; **paused 2026-11-06** while Andrew experiments.
+See [Progress and open questions](#progress-and-open-questions) at the end. Written 2026-10-27
+against `dev` at c05cebc5.
 Owner: Andrew (tacertain). Companion working notes: [`CLAUDE.md`](../CLAUDE.md) at the repo root.
 
 ## Goal
@@ -302,3 +304,59 @@ Usable after PR 3. Total 16 days without slack, 22 realistic.
 - Plan with discussion history: https://claude.ai/artifact/QY9nDGCUL6ryBGL3zovG6J
 - Upstream issues: https://github.com/OxygenCobalt/Auxio/issues/221 (album shuffle, declined),
   https://github.com/OxygenCobalt/Auxio/issues/1282 (per-album playlists as a workaround)
+
+## Progress and open questions
+
+Snapshot taken 2026-11-06 when work was paused. `album-playlists` is rebased onto upstream
+`dev` f243bceab, and spotless, `musikr:testDebug` and `app:testDebugUnitTest` all pass.
+
+### Done
+
+| Step | Commit subject | Notes |
+| --- | --- | --- |
+| 1 Storage | `musikr: store playlists as song or album entries` | As designed. |
+| 2 Expansion | `musikr: resolve album entries into playlists` | `PlaylistEntryRef` was folded into the public `org.oxycblt.musikr.PlaylistEntry` (`Song` / `Album`), so one type both reads and writes entries. Because of JVM erasure the entry mutations are named `createPlaylistWithEntries`, `addEntriesToPlaylist` and `rewritePlaylistEntries`, and the song forms are default wrappers. Album resolution lives in `graph/PlaylistAlbums.kt`. |
+| 3 Add album | `music: add an album to a playlist as one entry` | Decision 7 (songs-only or albums-only playlists) is enforced here. The helpers `PlaylistKind`, `kind`, `accepts`, `findEntry`, `uid` and `music` are in `app/.../music/PlaylistEntries.kt`. The nav args are `entryUids`. Artist, genre and multi-select adds still flatten to songs. |
+| 4 Detail and edit | `detail: show album playlist entries as album rows` | Album rows reuse `item_editable_song.xml` through `PlaylistAlbumViewHolder`, so there is no new layout. `DetailSection.PlaylistEntries` holds Song or Album items. `EditHeader.sortable` hides sort for album playlists. Tapping a row opens the album, and the row's menu is the album menu. |
+| 5 Grouped shuffle | `playback: shuffle album playlists by whole albums` | `playback/service/GroupedShuffle.kt`, called from `ExoPlaybackStateHolder.newShuffleOrder`. This step added the first app unit tests (JUnit and MockK). An edited queue falls back to per-song shuffle. |
+
+Workflow changes since the design was written: there are no PRs; each step is committed straight to
+`album-playlists`, which is kept rebased onto `upstream/dev` (see CLAUDE.md).
+
+### Step 6 (not started): M3U, revised proposal
+
+Andrew wants to make playlists on his computer for use on the phone. Album UIDs are hard to
+produce outside Auxio:
+
+- With a `MUSICBRAINZ_ALBUMID` tag, the UID is `org.musicbrainz:a-<release id>`, which is easy to
+  reproduce.
+- Otherwise it is an SHA-256 of the lowercased album name and album-artist names as Auxio parsed
+  them (`PreAlbum.uid` in `tag/interpret/PreMusic.kt`), truncated to a UUID. That depends on Auxio's
+  separators, album-artist fallback and album clustering, so it is fragile to recompute.
+
+The proposal, not yet agreed, is to make M3U path-based rather than UID-based:
+
+- Import: a `#EXT-X-AUXIO-ALBUM` line followed by the path of any one track of an album means
+  "this whole album as one entry". Resolve the path to a song, then take its album. A plain M3U
+  still imports as a song playlist.
+- Export: the same format. The album UID can be an optional hint after the marker, but import never
+  needs it.
+
+Andrew was undecided, so ask before building it.
+
+### Ideas raised, deferred
+
+- **Modal UI (2026-11-06):** a "track mode" and an "album mode". Track mode would show a Songs tab,
+  track artists with song counts, and song playlists. Album mode would show an Albums tab, album
+  artists with album counts, and album playlists. It was deferred until album playlists have been
+  tried. Today it can be approximated with Settings → Library tabs plus Settings → Music → Hide
+  collaborators. A full version would touch many upstream-hot files.
+
+### Known quirks
+
+- An album entry is dropped if the album's UID changes, for example after retagging the name or
+  album artist without a MusicBrainz ID.
+- After any queue edit, shuffle goes back to per-song shuffle.
+- Import into an existing playlist rewrites it as songs, and M3U export writes album playlists as
+  flat track lists until step 6.
+
