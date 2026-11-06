@@ -334,7 +334,7 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                 is PlaylistDecision.New -> {
                     L.d("Creating new playlist")
                     HomeFragmentDirections.newPlaylist(
-                        decision.songs.map { it.uid }.toTypedArray(),
+                        decision.entryUids,
                         decision.template,
                         decision.reason,
                     )
@@ -367,10 +367,8 @@ class HomeFragment : SelectionFragment<FragmentHomeBinding>() {
                     HomeFragmentDirections.deletePlaylist(decision.playlist.uid)
                 }
                 is PlaylistDecision.Add -> {
-                    L.d("Adding ${decision.songs.size} to a playlist")
-                    HomeFragmentDirections.addToPlaylist(
-                        decision.songs.map { it.uid }.toTypedArray()
-                    )
+                    L.d("Adding ${decision.entries.size} entries to a playlist")
+                    HomeFragmentDirections.addToPlaylist(decision.entryUids)
                 }
             }
         findNavController().navigateSafe(directions)

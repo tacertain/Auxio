@@ -241,10 +241,8 @@ class GenreDetailFragment : DetailFragment<Genre, Music>() {
         val directions =
             when (decision) {
                 is PlaylistDecision.Add -> {
-                    L.d("Adding ${decision.songs.size} songs to a playlist")
-                    GenreDetailFragmentDirections.addToPlaylist(
-                        decision.songs.map { it.uid }.toTypedArray()
-                    )
+                    L.d("Adding ${decision.entries.size} entries to a playlist")
+                    GenreDetailFragmentDirections.addToPlaylist(decision.entryUids)
                 }
                 is PlaylistDecision.New,
                 is PlaylistDecision.Import,

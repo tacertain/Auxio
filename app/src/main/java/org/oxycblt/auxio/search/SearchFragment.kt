@@ -355,10 +355,8 @@ class SearchFragment : ListFragment<Music, FragmentSearchBinding>() {
                     SearchFragmentDirections.exportPlaylist(decision.playlist.uid)
                 }
                 is PlaylistDecision.Add -> {
-                    L.d("Adding ${decision.songs.size} to a playlist")
-                    SearchFragmentDirections.addToPlaylist(
-                        decision.songs.map { it.uid }.toTypedArray()
-                    )
+                    L.d("Adding ${decision.entries.size} entries to a playlist")
+                    SearchFragmentDirections.addToPlaylist(decision.entryUids)
                 }
                 is PlaylistDecision.New -> {
                     error("Unexpected decision $decision")

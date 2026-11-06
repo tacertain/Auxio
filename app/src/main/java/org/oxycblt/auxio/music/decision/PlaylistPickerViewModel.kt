@@ -28,9 +28,15 @@ import org.oxycblt.auxio.R
 import org.oxycblt.auxio.list.sort.Sort
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.music.PlaylistDecision
+import org.oxycblt.auxio.music.PlaylistKind
+import org.oxycblt.auxio.music.accepts
+import org.oxycblt.auxio.music.containsAll
+import org.oxycblt.auxio.music.findEntry
 import org.oxycblt.auxio.music.resolve
+import org.oxycblt.auxio.music.uid
 import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Playlist
+import org.oxycblt.musikr.PlaylistEntry
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.playlist.ExportConfig
 import timber.log.Timber as L
@@ -67,11 +73,17 @@ class PlaylistPickerViewModel @Inject constructor(private val musicRepository: M
     val chosenName: StateFlow<ChosenName>
         field = MutableStateFlow<ChosenName>(ChosenName.Empty)
 
-    /** A batch of [Song]s to add to a playlist chosen by the user. Null if none yet. */
-    val currentSongsToAdd: StateFlow<List<Song>?>
-        field = MutableStateFlow<List<Song>?>(null)
+    /**
+     * A batch of entries (all songs or all albums) to add to a playlist chosen by the user. Null if
+     * none yet.
+     */
+    val currentEntriesToAdd: StateFlow<List<PlaylistEntry>?>
+        field = MutableStateFlow<List<PlaylistEntry>?>(null)
 
-    /** The [Playlist]s that [currentSongsToAdd] could be added to. */
+    /**
+     * The [Playlist]s that [currentEntriesToAdd] could be added to: empty playlists and those of
+     * the same [PlaylistKind].
+     */
     val playlistAddChoices: StateFlow<List<PlaylistChoice>>
         field = MutableStateFlow<List<PlaylistChoice>>(listOf())
 
@@ -80,28 +92,28 @@ class PlaylistPickerViewModel @Inject constructor(private val musicRepository: M
     }
 
     override fun onMusicChanges(changes: MusicRepository.Changes) {
-        var refreshChoicesWith: List<Song>? = null
+        var refreshChoicesWith: List<PlaylistEntry>? = null
         val library = musicRepository.library
         if (changes.deviceLibrary && library != null) {
             currentPendingNewPlaylist.value =
                 currentPendingNewPlaylist.value?.let { pendingPlaylist ->
                     PendingNewPlaylist(
                         pendingPlaylist.preferredName,
-                        pendingPlaylist.songs.mapNotNull { library.findSong(it.uid) },
+                        pendingPlaylist.entries.mapNotNull { library.findEntry(it.uid) },
                         pendingPlaylist.template,
                         pendingPlaylist.reason,
                     )
                 }
             L.d("Updated pending playlist: ${currentPendingNewPlaylist.value?.preferredName}")
 
-            currentSongsToAdd.value =
-                currentSongsToAdd.value?.let { pendingSongs ->
-                    pendingSongs
-                        .mapNotNull { library.findSong(it.uid) }
+            currentEntriesToAdd.value =
+                currentEntriesToAdd.value?.let { pendingEntries ->
+                    pendingEntries
+                        .mapNotNull { library.findEntry(it.uid) }
                         .ifEmpty { null }
                         .also { refreshChoicesWith = it }
                 }
-            L.d("Updated songs to add: ${currentSongsToAdd.value?.size} songs")
+            L.d("Updated entries to add: ${currentEntriesToAdd.value?.size} entries")
         }
 
         val chosenName = chosenName.value
@@ -114,7 +126,7 @@ class PlaylistPickerViewModel @Inject constructor(private val musicRepository: M
                 }
             }
             L.d("Updated chosen name to $chosenName")
-            refreshChoicesWith = refreshChoicesWith ?: currentSongsToAdd.value
+            refreshChoicesWith = refreshChoicesWith ?: currentEntriesToAdd.value
 
             // TODO: Add music syncing for other playlist states here
 
@@ -133,23 +145,23 @@ class PlaylistPickerViewModel @Inject constructor(private val musicRepository: M
     }
 
     /**
-     * Set a new [currentPendingNewPlaylist] from a new batch of pending [Song] [Music.UID]s.
+     * Set a new [currentPendingNewPlaylist] from a new batch of pending song or album [Music.UID]s.
      *
      * @param context [Context] required to generate a playlist name.
-     * @param songUids The [Music.UID]s of songs to be present in the playlist.
+     * @param entryUids The [Music.UID]s of the songs or albums to be present in the playlist.
      * @param reason The reason the playlist is being created.
      */
     fun setPendingPlaylist(
         context: Context,
-        songUids: Array<Music.UID>,
+        entryUids: Array<Music.UID>,
         template: String?,
         reason: PlaylistDecision.New.Reason,
     ) {
-        L.d("Opening ${songUids.size} songs to create a playlist from")
+        L.d("Opening ${entryUids.size} entries to create a playlist from")
         val library = musicRepository.library ?: return
-        val songs =
+        val entries =
             musicRepository.library
-                ?.let { songUids.mapNotNull(it::findSong) }
+                ?.let { entryUids.mapNotNull(it::findEntry) }
                 ?.also(::refreshPlaylistChoices)
 
         val possibleName =
@@ -167,8 +179,8 @@ class PlaylistPickerViewModel @Inject constructor(private val musicRepository: M
             }
 
         currentPendingNewPlaylist.value =
-            if (possibleName != null && songs != null) {
-                PendingNewPlaylist(possibleName, songs, template, reason)
+            if (possibleName != null && entries != null) {
+                PendingNewPlaylist(possibleName, entries, template, reason)
             } else {
                 L.w("Given song UIDs to create were invalid")
                 null
@@ -271,29 +283,30 @@ class PlaylistPickerViewModel @Inject constructor(private val musicRepository: M
     }
 
     /**
-     * Set a new [currentSongsToAdd] from a new batch of pending [Song] [Music.UID]s.
+     * Set a new [currentEntriesToAdd] from a new batch of pending song or album [Music.UID]s.
      *
-     * @param songUids The [Music.UID]s of songs to add to a playlist.
+     * @param entryUids The [Music.UID]s of the songs or albums to add to a playlist.
      */
-    fun setSongsToAdd(songUids: Array<Music.UID>) {
-        L.d("Opening ${songUids.size} songs to add to a playlist")
-        currentSongsToAdd.value =
+    fun setEntriesToAdd(entryUids: Array<Music.UID>) {
+        L.d("Opening ${entryUids.size} entries to add to a playlist")
+        currentEntriesToAdd.value =
             musicRepository.library
-                ?.let { songUids.mapNotNull(it::findSong).ifEmpty { null } }
+                ?.let { entryUids.mapNotNull(it::findEntry).ifEmpty { null } }
                 ?.also(::refreshPlaylistChoices)
-        if (currentSongsToAdd.value == null || songUids.size != currentSongsToAdd.value?.size) {
-            L.w("Given song UIDs to add were (partially) invalid")
+        if (
+            currentEntriesToAdd.value == null || entryUids.size != currentEntriesToAdd.value?.size
+        ) {
+            L.w("Given entry UIDs to add were (partially) invalid")
         }
     }
 
-    private fun refreshPlaylistChoices(songs: List<Song>) {
+    private fun refreshPlaylistChoices(entries: List<PlaylistEntry>) {
         val library = musicRepository.library ?: return
         L.d("Refreshing playlist choices")
         playlistAddChoices.value =
-            Sort(Sort.Mode.ByName, Sort.Direction.ASCENDING).playlists(library.playlists).map {
-                val songSet = it.songs.toSet()
-                PlaylistChoice(it, songs.all(songSet::contains))
-            }
+            Sort(Sort.Mode.ByName, Sort.Direction.ASCENDING)
+                .playlists(library.playlists.filter { it.accepts(entries) })
+                .map { PlaylistChoice(it, it.containsAll(entries)) }
     }
 
     private companion object {
@@ -305,13 +318,13 @@ class PlaylistPickerViewModel @Inject constructor(private val musicRepository: M
  * Represents a playlist that will be created as soon as a name is chosen.
  *
  * @param preferredName The name to be used by default if no other name is chosen.
- * @param songs The [Song]s to be contained in the [PendingNewPlaylist]
+ * @param entries The entries (all songs or all albums) to be contained in the [PendingNewPlaylist]
  * @param reason The reason the playlist is being created.
  * @author Alexander Capehart (OxygenCobalt)
  */
 data class PendingNewPlaylist(
     val preferredName: String,
-    val songs: List<Song>,
+    val entries: List<PlaylistEntry>,
     val template: String?,
     val reason: PlaylistDecision.New.Reason,
 )

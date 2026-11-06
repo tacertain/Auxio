@@ -36,7 +36,9 @@ import org.oxycblt.auxio.util.MutableEvent
 import org.oxycblt.musikr.Album
 import org.oxycblt.musikr.Artist
 import org.oxycblt.musikr.Genre
+import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Playlist
+import org.oxycblt.musikr.PlaylistEntry
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.playlist.ExportConfig
 import org.oxycblt.musikr.playlist.ExternalPlaylistManager
@@ -121,19 +123,19 @@ constructor(
      * Create a new generic [Playlist].
      *
      * @param name The name of the new [Playlist]. If null, the user will be prompted for one.
-     * @param songs The [Song]s to be contained in the new playlist.
+     * @param entries The entries (all songs or all albums) to be contained in the new playlist.
      * @param reason The reason why a new playlist is being created. For all intensive purposes, you
      *   do not need to specify this.
      */
     fun createPlaylist(
         name: String? = null,
-        songs: List<Song> = listOf(),
+        entries: List<PlaylistEntry> = listOf(),
         reason: PlaylistDecision.New.Reason = PlaylistDecision.New.Reason.NEW,
     ) {
         if (name != null) {
-            L.d("Creating $name with ${songs.size} songs]")
+            L.d("Creating $name with ${entries.size} entries]")
             viewModelScope.launch(Dispatchers.IO) {
-                musicRepository.createPlaylist(name, songs)
+                musicRepository.createPlaylistWithEntries(name, entries)
                 val message =
                     when (reason) {
                         PlaylistDecision.New.Reason.NEW -> PlaylistMessage.NewPlaylistSuccess
@@ -143,8 +145,8 @@ constructor(
                 playlistMessage.put(message)
             }
         } else {
-            L.d("Launching creation dialog for ${songs.size} songs")
-            playlistDecision.put(PlaylistDecision.New(songs, null, reason))
+            L.d("Launching creation dialog for ${entries.size} entries")
+            playlistDecision.put(PlaylistDecision.New(entries, null, reason))
         }
     }
 
@@ -196,7 +198,7 @@ constructor(
                 } else {
                     playlistDecision.put(
                         PlaylistDecision.New(
-                            songs,
+                            songs.map { PlaylistEntry.Song(it) },
                             importedPlaylist.name,
                             PlaylistDecision.New.Reason.IMPORT,
                         )
@@ -307,7 +309,7 @@ constructor(
      */
     fun addToPlaylist(album: Album, playlist: Playlist? = null) {
         L.d("Adding $album to playlist")
-        addToPlaylist(listSettings.albumSongSort.songs(album.songs), playlist)
+        addEntriesToPlaylist(listOf(PlaylistEntry.Album(album)), playlist)
     }
 
     /**
@@ -339,15 +341,30 @@ constructor(
      * @param playlist The [Playlist] to add to. If null, the user will be prompted for one.
      */
     fun addToPlaylist(songs: List<Song>, playlist: Playlist? = null) {
+        addEntriesToPlaylist(songs.map { PlaylistEntry.Song(it) }, playlist)
+    }
+
+    /**
+     * Add entries to a [Playlist]. The entries must be all songs or all albums, and must match the
+     * kind of [playlist] if it is not empty.
+     *
+     * @param entries The entries to add to the [Playlist].
+     * @param playlist The [Playlist] to add to. If null, the user will be prompted for one.
+     */
+    fun addEntriesToPlaylist(entries: List<PlaylistEntry>, playlist: Playlist? = null) {
         if (playlist != null) {
-            L.d("Adding ${songs.size} songs to $playlist")
+            if (!playlist.accepts(entries)) {
+                L.e("Refusing to mix songs and albums in $playlist")
+                return
+            }
+            L.d("Adding ${entries.size} entries to $playlist")
             viewModelScope.launch(Dispatchers.IO) {
-                musicRepository.addToPlaylist(songs, playlist)
+                musicRepository.addEntriesToPlaylist(entries, playlist)
                 playlistMessage.put(PlaylistMessage.AddSuccess)
             }
         } else {
-            L.d("Launching addition dialog for songs=${songs.size}")
-            playlistDecision.put(PlaylistDecision.Add(songs))
+            L.d("Launching addition dialog for entries=${entries.size}")
+            playlistDecision.put(PlaylistDecision.Add(entries))
         }
     }
 
@@ -379,14 +396,18 @@ sealed interface PlaylistDecision {
     /**
      * Navigate to a dialog that allows a user to pick a name for a new [Playlist].
      *
-     * @param songs The [Song]s to contain in the new [Playlist].
+     * @param entries The entries (all songs or all albums) to contain in the new [Playlist].
      * @param template An existing playlist name that should be editable in the opened dialog. If
      *   null, a placeholder should be created and shown as a hint instead.
      * @param reason The reason why a new playlist is being created. For all intensive purposes, you
      *   do not need to specify this.
      */
-    data class New(val songs: List<Song>, val template: String?, val reason: Reason) :
+    data class New(val entries: List<PlaylistEntry>, val template: String?, val reason: Reason) :
         PlaylistDecision {
+        /** The [Music.UID]s of [entries], for navigation arguments. */
+        val entryUids: Array<Music.UID>
+            get() = entries.map { it.uid }.toTypedArray()
+
         enum class Reason {
             NEW,
             ADD,
@@ -434,11 +455,15 @@ sealed interface PlaylistDecision {
     data class Delete(val playlist: Playlist) : PlaylistDecision
 
     /**
-     * Navigate to a dialog that allows the user to add [Song]s to a [Playlist].
+     * Navigate to a dialog that allows the user to add songs or albums to a [Playlist].
      *
-     * @param songs The [Song]s to add to the chosen [Playlist].
+     * @param entries The entries (all songs or all albums) to add to the chosen [Playlist].
      */
-    data class Add(val songs: List<Song>) : PlaylistDecision
+    data class Add(val entries: List<PlaylistEntry>) : PlaylistDecision {
+        /** The [Music.UID]s of [entries], for navigation arguments. */
+        val entryUids: Array<Music.UID>
+            get() = entries.map { it.uid }.toTypedArray()
+    }
 }
 
 sealed interface PlaylistMessage {

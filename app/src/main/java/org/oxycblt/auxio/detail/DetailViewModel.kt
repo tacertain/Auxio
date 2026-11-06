@@ -41,6 +41,8 @@ import org.oxycblt.auxio.list.adapter.UpdateInstructions
 import org.oxycblt.auxio.list.sort.Sort
 import org.oxycblt.auxio.music.MusicRepository
 import org.oxycblt.auxio.music.MusicType
+import org.oxycblt.auxio.music.PlaylistKind
+import org.oxycblt.auxio.music.kind
 import org.oxycblt.auxio.playback.PlaySong
 import org.oxycblt.auxio.playback.PlaybackSettings
 import org.oxycblt.auxio.util.Event
@@ -406,6 +408,11 @@ constructor(
     /** Start a playlist editing session. Does nothing if a playlist is not being shown. */
     fun startPlaylistEdit() {
         val playlist = currentPlaylist.value ?: return
+        if (playlist.kind == PlaylistKind.ALBUMS) {
+            // TODO(album-playlists step 4): editing works on songs and would flatten albums.
+            L.w("Album playlists cannot be edited yet")
+            return
+        }
         L.d("Starting playlist edit")
         editedPlaylist.value = playlist.songs
         refreshPlaylist(playlist.uid)

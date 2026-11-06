@@ -414,7 +414,7 @@
         android:label="new_playlist_dialog"
         tools:layout="@layout/dialog_playlist_name">
         <argument
-            android:name="songUids"
+            android:name="entryUids"
             app:argType="org.oxycblt.musikr.Music$UID[]" />
         <argument
             android:name="template"
@@ -471,7 +471,7 @@
         android:label="new_playlist_dialog"
         tools:layout="@layout/dialog_playlist_name">
         <argument
-            android:name="songUids"
+            android:name="entryUids"
             app:argType="org.oxycblt.musikr.Music$UID[]" />
         <action
             android:id="@+id/new_playlist"

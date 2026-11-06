@@ -69,7 +69,7 @@ class NewPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNameBi
                         else -> throw IllegalStateException()
                     }
                 // TODO: Navigate to playlist if there are songs in it
-                musicModel.createPlaylist(name, pendingPlaylist.songs, pendingPlaylist.reason)
+                musicModel.createPlaylist(name, pendingPlaylist.entries, pendingPlaylist.reason)
                 findNavController().apply {
                     navigateUp()
                     // Do an additional navigation away from the playlist addition dialog, if
@@ -91,7 +91,7 @@ class NewPlaylistDialog : ViewBindingMaterialDialogFragment<DialogPlaylistNameBi
 
         // --- VIEWMODEL SETUP ---
         musicModel.playlistDecision.consume()
-        pickerModel.setPendingPlaylist(requireContext(), args.songUids, args.template, args.reason)
+        pickerModel.setPendingPlaylist(requireContext(), args.entryUids, args.template, args.reason)
 
         collectImmediately(pickerModel.currentPendingNewPlaylist, ::updatePendingPlaylist)
         collectImmediately(pickerModel.chosenName, ::updateChosenName)

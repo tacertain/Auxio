@@ -24,6 +24,7 @@ changes additive, in new files where possible, and avoid reformatting untouched 
 | 4 | Room schema export | Turn `exportSchema = true` on for `musikr` and commit the JSON under `musikr/schemas/`. Write a real migration 75 to 76 even though no existing playlists need protecting; a migration test is optional. |
 | 5 | Artist and genre "Add to playlist" | Keep flattening to songs. |
 | 6 | Shuffle | Album-grouped: entries shuffled, tracks within an album kept in order. |
+| 7 | Mixing songs and albums in one playlist (decided 2026-11-06) | Not allowed. A playlist holds only songs or only albums; an empty playlist takes whichever comes first. The storage and library layers still allow mixing; the rule is enforced in the app (the add-to-playlist picker only offers playlists of the matching kind). A fuller "track mode / album mode" UI was considered and deferred until this has been tried. |
 
 ## How playlists flow today
 

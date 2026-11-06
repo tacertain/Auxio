@@ -33,14 +33,16 @@ import org.oxycblt.auxio.databinding.DialogMusicChoicesBinding
 import org.oxycblt.auxio.list.ClickableListListener
 import org.oxycblt.auxio.music.MusicViewModel
 import org.oxycblt.auxio.music.PlaylistDecision
+import org.oxycblt.auxio.music.uid
 import org.oxycblt.auxio.ui.ViewBindingMaterialDialogFragment
 import org.oxycblt.auxio.util.collectImmediately
 import org.oxycblt.auxio.util.navigateSafe
-import org.oxycblt.musikr.Song
+import org.oxycblt.musikr.PlaylistEntry
 import timber.log.Timber as L
 
 /**
- * A dialog that allows the user to pick a specific playlist to add song(s) to.
+ * A dialog that allows the user to pick a specific playlist to add songs or albums to. Only
+ * playlists that would not end up mixing songs and albums are offered.
  *
  * @author Alexander Capehart (OxygenCobalt)
  */
@@ -73,9 +75,9 @@ class AddToPlaylistDialog :
         }
 
         // --- VIEWMODEL SETUP ---
-        pickerModel.setSongsToAdd(args.songUids)
+        pickerModel.setEntriesToAdd(args.entryUids)
         musicModel.playlistDecision.consume()
-        collectImmediately(pickerModel.currentSongsToAdd, ::updatePendingSongs)
+        collectImmediately(pickerModel.currentEntriesToAdd, ::updatePendingEntries)
         collectImmediately(pickerModel.playlistAddChoices, ::updatePlaylistChoices)
     }
 
@@ -85,7 +87,10 @@ class AddToPlaylistDialog :
     }
 
     override fun onClick(item: PlaylistChoice, viewHolder: RecyclerView.ViewHolder) {
-        musicModel.addToPlaylist(pickerModel.currentSongsToAdd.value ?: return, item.playlist)
+        musicModel.addEntriesToPlaylist(
+            pickerModel.currentEntriesToAdd.value ?: return,
+            item.playlist,
+        )
         findNavController().navigateUp()
     }
 
@@ -96,20 +101,20 @@ class AddToPlaylistDialog :
         //  preserves the existing navigation system.
         //  I could also roll some kind of new playlist textbox into the dialog, but that's
         //  a lot harder.
-        val songs = pickerModel.currentSongsToAdd.value ?: return
+        val entries = pickerModel.currentEntriesToAdd.value ?: return
         findNavController()
             .navigateSafe(
                 AddToPlaylistDialogDirections.newPlaylist(
-                    songs.map { it.uid }.toTypedArray(),
+                    entries.map { it.uid }.toTypedArray(),
                     null,
                     PlaylistDecision.New.Reason.ADD,
                 )
             )
     }
 
-    private fun updatePendingSongs(songs: List<Song>?) {
-        if (songs == null) {
-            L.d("No songs to show choices for, navigating away")
+    private fun updatePendingEntries(entries: List<PlaylistEntry>?) {
+        if (entries == null) {
+            L.d("No entries to show choices for, navigating away")
             findNavController().navigateUp()
         }
     }

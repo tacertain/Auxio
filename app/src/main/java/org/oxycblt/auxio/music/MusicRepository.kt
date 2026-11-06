@@ -39,6 +39,7 @@ import org.oxycblt.musikr.Music
 import org.oxycblt.musikr.Musikr
 import org.oxycblt.musikr.MutableLibrary
 import org.oxycblt.musikr.Playlist
+import org.oxycblt.musikr.PlaylistEntry
 import org.oxycblt.musikr.Song
 import org.oxycblt.musikr.Storage
 import org.oxycblt.musikr.cache.MutableCache
@@ -129,7 +130,16 @@ interface MusicRepository {
      * @param name The name of the new [Playlist].
      * @param songs The songs to populate the new [Playlist] with.
      */
-    suspend fun createPlaylist(name: String, songs: List<Song>)
+    suspend fun createPlaylist(name: String, songs: List<Song>) =
+        createPlaylistWithEntries(name, songs.map { PlaylistEntry.Song(it) })
+
+    /**
+     * Create a new [Playlist] of the given entries, each a song or a whole album.
+     *
+     * @param name The name of the new [Playlist].
+     * @param entries The entries to populate the new [Playlist] with.
+     */
+    suspend fun createPlaylistWithEntries(name: String, entries: List<PlaylistEntry>)
 
     /**
      * Rename a [Playlist].
@@ -152,7 +162,16 @@ interface MusicRepository {
      * @param songs The [Song]s to add to the [Playlist].
      * @param playlist The [Playlist] to add to.
      */
-    suspend fun addToPlaylist(songs: List<Song>, playlist: Playlist)
+    suspend fun addToPlaylist(songs: List<Song>, playlist: Playlist) =
+        addEntriesToPlaylist(songs.map { PlaylistEntry.Song(it) }, playlist)
+
+    /**
+     * Add the given entries, each a song or a whole album, to a [Playlist].
+     *
+     * @param entries The entries to add to the [Playlist].
+     * @param playlist The [Playlist] to add to.
+     */
+    suspend fun addEntriesToPlaylist(entries: List<PlaylistEntry>, playlist: Playlist)
 
     /**
      * Update the [Song]s of a [Playlist].
@@ -160,7 +179,16 @@ interface MusicRepository {
      * @param playlist The [Playlist] to update.
      * @param songs The new [Song]s to be contained in the [Playlist].
      */
-    suspend fun rewritePlaylist(playlist: Playlist, songs: List<Song>)
+    suspend fun rewritePlaylist(playlist: Playlist, songs: List<Song>) =
+        rewritePlaylistEntries(playlist, songs.map { PlaylistEntry.Song(it) })
+
+    /**
+     * Replace the contents of a [Playlist] with the given entries, each a song or a whole album.
+     *
+     * @param playlist The [Playlist] to update.
+     * @param entries The new entries to be contained in the [Playlist].
+     */
+    suspend fun rewritePlaylistEntries(playlist: Playlist, entries: List<PlaylistEntry>)
 
     /**
      * Request that a music loading operation is started by the current [IndexingWorker]. Does
@@ -317,10 +345,10 @@ constructor(
                 ?: findPlaylist(uid)
         })
 
-    override suspend fun createPlaylist(name: String, songs: List<Song>) {
+    override suspend fun createPlaylistWithEntries(name: String, entries: List<PlaylistEntry>) {
         val library = synchronized(this) { library ?: return }
-        L.d("Creating playlist $name with ${songs.size} songs")
-        val newLibrary = library.createPlaylist(name, songs)
+        L.d("Creating playlist $name with ${entries.size} entries")
+        val newLibrary = library.createPlaylistWithEntries(name, entries)
         synchronized(this) { this.library = newLibrary }
         withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
     }
@@ -341,18 +369,18 @@ constructor(
         withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
     }
 
-    override suspend fun addToPlaylist(songs: List<Song>, playlist: Playlist) {
+    override suspend fun addEntriesToPlaylist(entries: List<PlaylistEntry>, playlist: Playlist) {
         val library = synchronized(this) { library ?: return }
-        L.d("Adding ${songs.size} songs to $playlist")
-        val newLibrary = library.addToPlaylist(playlist, songs)
+        L.d("Adding ${entries.size} entries to $playlist")
+        val newLibrary = library.addEntriesToPlaylist(playlist, entries)
         synchronized(this) { this.library = newLibrary }
         withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
     }
 
-    override suspend fun rewritePlaylist(playlist: Playlist, songs: List<Song>) {
+    override suspend fun rewritePlaylistEntries(playlist: Playlist, entries: List<PlaylistEntry>) {
         val library = synchronized(this) { library ?: return }
-        L.d("Rewriting $playlist with ${songs.size} songs")
-        val newLibrary = library.rewritePlaylist(playlist, songs)
+        L.d("Rewriting $playlist with ${entries.size} entries")
+        val newLibrary = library.rewritePlaylistEntries(playlist, entries)
         synchronized(this) { this.library = newLibrary }
         withContext(Dispatchers.Main) { dispatchLibraryChange(device = false, user = true) }
     }
