@@ -69,5 +69,11 @@ background. There is no `androidTest` source set in either module; do not add on
 See the table at the top of the design doc. In short: album entries expand in disc-then-track
 order; they are removed only whole; the playlist sort dialog is hidden when an album entry is
 present; artist and genre "Add to playlist" still flatten to songs; shuffle on an album playlist
-shuffles entry order and keeps album tracks in order. Do not reopen these; ask Andrew in the
+shuffles entry order and keeps album tracks in order. A playlist holds only songs or only albums (decision 7, enforced in the app). Do not reopen these; ask Andrew in the
 project thread if something new comes up.
+
+## Current state
+
+Steps 1 to 5 are done, and work is paused (2026-11-06) while Andrew experiments. Step 6 (M3U) has an
+unagreed proposal. Read "Progress and open questions" at the end of the design doc before resuming,
+and ask Andrew before starting step 6.
